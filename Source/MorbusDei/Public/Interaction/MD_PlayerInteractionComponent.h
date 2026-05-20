@@ -1,0 +1,39 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "MD_PlayerInteractionComponent.generated.h"
+
+class AActor;
+class APawn;
+
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class MORBUSDEI_API UMD_PlayerInteractionComponent : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:
+	UMD_PlayerInteractionComponent();
+
+	virtual void BeginPlay() override;
+	virtual void TickComponent(
+		float DeltaTime,
+		ELevelTick TickType,
+		FActorComponentTickFunction* ThisTickFunction
+	) override;
+
+	void Interact();
+
+protected:
+	UPROPERTY(EditAnywhere, Category="Interaction")
+	float InteractDistance = 500.0f;
+	
+	UPROPERTY()
+	AActor* CurrentFocusedInteractable = nullptr;
+
+	UPROPERTY()
+	APawn* OwningPawn = nullptr;
+
+	void UpdateInteractionFocus();
+	void ClearInteractionFocus();
+};
