@@ -23,13 +23,13 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMeshComponent* Root;
+	USceneComponent* Root;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UStaticMeshComponent* HighlightedObjects;
+	USceneComponent* HighlightedObjects;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	UStaticMeshComponent* ToggleableObjects;
+	USceneComponent* ToggleableObjects;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Interaction")
 	UWidgetComponent* InteractPromptWidget;

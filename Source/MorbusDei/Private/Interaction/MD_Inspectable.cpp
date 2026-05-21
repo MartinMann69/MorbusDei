@@ -37,12 +37,6 @@ bool AMD_Inspectable::StartInspect(APawn* Interactor, USceneComponent* InspectPi
 	bOriginalCanInteract = bCanInteract;
 	bOriginalActorCollisionEnabled = GetActorEnableCollision();
 
-	if (Root)
-	{
-		bOriginalSimulatePhysics = Root->IsSimulatingPhysics();
-		Root->SetSimulatePhysics(false);
-	}
-
 	bCanInteract = false;
 	SetActorEnableCollision(false);
 
@@ -85,11 +79,6 @@ void AMD_Inspectable::EndInspect()
 		nullptr,
 		ETeleportType::TeleportPhysics
 	);
-
-	if (Root)
-	{
-		Root->SetSimulatePhysics(bOriginalSimulatePhysics);
-	}
 
 	SetActorEnableCollision(bOriginalActorCollisionEnabled);
 	bCanInteract = bOriginalCanInteract;

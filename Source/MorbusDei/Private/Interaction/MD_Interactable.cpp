@@ -9,20 +9,14 @@ AMD_Interactable::AMD_Interactable()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	Root = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Object"));
+	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = Root;
-	Root->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	Root->SetCollisionResponseToAllChannels(ECR_Block);
 
-	HighlightedObjects = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HighlightedObjects"));
+	HighlightedObjects = CreateDefaultSubobject<USceneComponent>(TEXT("HighlightedObjects"));
 	HighlightedObjects->SetupAttachment(Root);
-	HighlightedObjects->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	HighlightedObjects->SetGenerateOverlapEvents(false);
 
-	ToggleableObjects = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ToggleableObjects"));
+	ToggleableObjects = CreateDefaultSubobject<USceneComponent>(TEXT("ToggleableObjects"));
 	ToggleableObjects->SetupAttachment(Root);
-	ToggleableObjects->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ToggleableObjects->SetGenerateOverlapEvents(false);
 
 	InteractPromptWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("InteractPromptWidget"));
 	InteractPromptWidget->SetupAttachment(RootComponent);
