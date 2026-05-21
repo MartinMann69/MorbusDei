@@ -5,6 +5,7 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "Blueprint/UserWidget.h"
+#include "Interaction/MD_PlayerInteractionComponent.h"
 #include "MD_PlayerCharacter.generated.h"
 
 class UInputAction;
@@ -13,6 +14,7 @@ class UEnhancedInputComponent;
 
 class UCameraComponent;
 class USpringArmComponent;
+class UMD_PlayerInteractionComponent;
 
 class UUserWidget;
 
@@ -53,6 +55,9 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* SpringArmComp;
 
+	UPROPERTY(VisibleAnywhere)
+	UMD_PlayerInteractionComponent* InteractionComp;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -74,11 +79,5 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void ToggleEscapeMenu();
-	void HandleInteract();
-
-	UPROPERTY(EditAnywhere)
-	AActor* CurrentFocusedInteractable = nullptr;
-	void UpdateInteractionFocus();
-	void ClearInteractionFocus();
 	
 };

@@ -9,6 +9,8 @@
 
 class UStaticMeshComponent;
 class UWidgetComponent;
+class UMD_HighlightComponent;
+class UMD_InteractPromptComponent;
 
 UCLASS()
 class MORBUSDEI_API AMD_Interactable : public AActor, public IMD_InteractInterface
@@ -20,20 +22,23 @@ public:
 	virtual void BeginPlay() override;
 
 protected:
-	UPROPERTY(EditAnywhere,BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMeshComponent* Root;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* HighlightedObjects;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* ToggleableObjects;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Interaction")
 	UWidgetComponent* InteractPromptWidget;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Highlight")
-	bool bCanHighlight = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UMD_HighlightComponent* HighlightComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UMD_InteractPromptComponent* InteractPromptComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Interaction")
 	bool bCanInteract = true;
