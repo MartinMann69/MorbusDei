@@ -15,6 +15,7 @@ class UEnhancedInputComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class UMD_PlayerInteractionComponent;
+class UMD_PlayerInspectComponent;
 
 class UUserWidget;
 
@@ -57,6 +58,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere)
 	UMD_PlayerInteractionComponent* InteractionComp;
+
+	UPROPERTY(VisibleAnywhere)
+	UMD_PlayerInspectComponent* InspectComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputMappingContext* DefaultMappingContext;
