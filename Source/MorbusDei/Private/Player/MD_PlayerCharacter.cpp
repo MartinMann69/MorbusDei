@@ -75,6 +75,7 @@ void AMD_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Move);
 	EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Look);
+	EnhancedInput->BindAction(ZoomAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Zoom);
 	EnhancedInput->BindAction(MenuAction, ETriggerEvent::Started, this, &AMD_PlayerCharacter::ToggleEscapeMenu);
 	EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, InteractionComp, &UMD_PlayerInteractionComponent::Interact);
 }
@@ -110,6 +111,17 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 	
 	AddControllerYawInput(LookAxisVector.X);
 	AddControllerPitchInput(LookAxisVector.Y);
+}
+
+void AMD_PlayerCharacter::Zoom(const FInputActionValue& Value)
+{
+	if (!InspectComp || !InspectComp->IsInspecting())
+	{
+		return;
+	}
+
+	const float ZoomInput = Value.Get<float>();
+	InspectComp->ZoomInspectedItem(ZoomInput);
 }
 
 void AMD_PlayerCharacter::ToggleEscapeMenu() //! Should later be moved in to "PlayerController"

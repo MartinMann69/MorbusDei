@@ -23,10 +23,16 @@ public:
 	bool StartInspect(AMD_Inspectable* Item);
 	void EndInspect();
 	void RotateInspectedItem(const FVector2D& LookInput);
+	void ZoomInspectedItem(float ZoomInput);
 
 	bool IsInspecting() const;
 
 protected:
+	float CurrentInspectDistance = 0.f;
+
+	FVector InspectViewLocation = FVector::ZeroVector;
+	FRotator InspectViewRotation = FRotator::ZeroRotator;
+	
 	UPROPERTY()
 	APawn* OwningPawn = nullptr;
 
@@ -37,4 +43,5 @@ protected:
 	USceneComponent* InspectPivot = nullptr;
 
 	void EnsureInspectPivot();
+	void UpdateInspectPivotLocation();
 };

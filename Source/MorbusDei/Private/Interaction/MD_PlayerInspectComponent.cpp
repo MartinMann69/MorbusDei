@@ -49,14 +49,17 @@ bool UMD_PlayerInspectComponent::StartInspect(AMD_Inspectable* Item)
 	{
 		EndInspect();
 	}
+	
+	OwningPawn->GetController()->GetPlayerViewPoint(InspectViewLocation, InspectViewRotation);
 
-	FVector ViewLocation;
-	FRotator ViewRotation;
-	OwningPawn->GetController()->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	const float MinDistance = FMath::Min(Item->GetMinInspectDistance(), Item->GetMaxInspectDistance());
+	const float MaxDistance = FMath::Max(Item->GetMinInspectDistance(), Item->GetMaxInspectDistance());
 
-	const FVector PivotLocation = ViewLocation + ViewRotation.Vector() * Item->GetInspectDistance();
+	CurrentInspectDistance = FMath::Clamp(Item->GetInspectDistance(), MinDistance, MaxDistance);
+	
+	const FVector PivotLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
 
-	InspectPivot->SetWorldLocationAndRotation(PivotLocation, ViewRotation);
+	InspectPivot->SetWorldLocationAndRotation(PivotLocation, InspectViewRotation);
 
 	CurrentInspectedItem = Item;
 
@@ -96,6 +99,45 @@ void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 
 	InspectPivot->AddWorldRotation(FRotator(0.f, YawAmount, 0.f));
 	InspectPivot->AddLocalRotation(FRotator(PitchAmount, 0.f, 0.f));
+}
+
+void UMD_PlayerInspectComponent::ZoomInspectedItem(float ZoomInput)
+{
+	if (!CurrentInspectedItem || !InspectPivot)
+	{
+		return;
+	}
+
+	const float MinDistance = FMath::Min(
+		CurrentInspectedItem->GetMinInspectDistance(),
+		CurrentInspectedItem->GetMaxInspectDistance()
+	);
+
+	const float MaxDistance = FMath::Max(
+		CurrentInspectedItem->GetMinInspectDistance(),
+		CurrentInspectedItem->GetMaxInspectDistance()
+	);
+
+	CurrentInspectDistance = FMath::Clamp(
+		CurrentInspectDistance + ZoomInput * CurrentInspectedItem->GetZoomSpeed(),
+		MinDistance,
+		MaxDistance
+	);
+
+	UpdateInspectPivotLocation();
+}
+
+void UMD_PlayerInspectComponent::UpdateInspectPivotLocation()
+{
+	if (!InspectPivot)
+	{
+		return;
+	}
+
+	const FVector NewLocation =
+		InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
+
+	InspectPivot->SetWorldLocation(NewLocation);
 }
 
 bool UMD_PlayerInspectComponent::IsInspecting() const

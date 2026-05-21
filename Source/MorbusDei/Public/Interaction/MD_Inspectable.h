@@ -18,13 +18,25 @@ public:
 	void EndInspect();
 	
 	bool IsInspecting() const;
+	
 	float GetInspectDistance() const { return InspectDistance; }
+	float GetMinInspectDistance() const { return MinInspectDistance; }
+	float GetMaxInspectDistance() const { return MaxInspectDistance; }
+	float GetZoomSpeed() const { return ZoomSpeed; }
 	float GetRotationSpeed() const { return RotationSpeed; }
-
 
 protected:
 	UPROPERTY(EditAnywhere, Category="Inspection")
 	float InspectDistance = 100.f;
+
+	UPROPERTY(EditAnywhere, Category="Inspection|Zoom")
+	float MinInspectDistance = 50.f;
+
+	UPROPERTY(EditAnywhere, Category="Inspection|Zoom")
+	float MaxInspectDistance = 180.f;
+
+	UPROPERTY(EditAnywhere, Category="Inspection|Zoom")
+	float ZoomSpeed = 10.f;
 
 	UPROPERTY(EditAnywhere, Category="Inspection")
 	float RotationSpeed = 2.f;
