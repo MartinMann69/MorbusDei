@@ -9,8 +9,7 @@
 
 #include "Camera/CameraComponent.h"
 
-#include "Interaction/MD_InteractInterface.h"
-#include "DrawDebugHelpers.h"
+#include "Interaction/MD_PlayerInspectComponent.h"
 #include "Interaction/MD_PlayerInteractionComponent.h"
 
 // Sets default values
@@ -48,6 +47,7 @@ AMD_PlayerCharacter::AMD_PlayerCharacter()
 	CameraComponent->FieldOfView = 66.f;
 
 	InteractionComp = CreateDefaultSubobject<UMD_PlayerInteractionComponent>("InteractionComponent");
+	InspectComp = CreateDefaultSubobject<UMD_PlayerInspectComponent>("InspectComponent");
 }
 
 // Called when the game starts or when spawned
@@ -81,6 +81,11 @@ void AMD_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 void AMD_PlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (InspectComp && InspectComp->IsInspecting())
+	{
+		return;
+	}
+	
 	FVector2D MovementVector = Value.Get<FVector2D>();
 	
 	FRotator ControlRot = Controller->GetControlRotation();
@@ -96,6 +101,12 @@ void AMD_PlayerCharacter::Move(const FInputActionValue& Value)
 void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 {
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+	if (InspectComp && InspectComp->IsInspecting())
+	{
+		InspectComp->RotateInspectedItem(LookAxisVector);
+		return;
+	}
 	
 	AddControllerYawInput(LookAxisVector.X);
 	AddControllerPitchInput(LookAxisVector.Y);
@@ -103,6 +114,12 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 
 void AMD_PlayerCharacter::ToggleEscapeMenu() //! Should later be moved in to "PlayerController"
 {
+	// if (InspectComp && InspectComp->IsInspecting())
+	// {
+	// 	InspectComp->EndInspect();
+	// 	return;
+	// }
+	
 	UE_LOG(LogTemp, Warning, TEXT("Open Menu"));
 
 	APlayerController* PC = Cast<APlayerController>(GetController());

@@ -6,6 +6,7 @@
 
 class AActor;
 class APawn;
+class UMD_PlayerInspectComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class MORBUSDEI_API UMD_PlayerInteractionComponent : public UActorComponent
@@ -27,12 +28,15 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, Category="Interaction")
 	float InteractDistance = 500.0f;
-	
+
 	UPROPERTY()
 	AActor* CurrentFocusedInteractable = nullptr;
 
 	UPROPERTY()
 	APawn* OwningPawn = nullptr;
+
+	UPROPERTY()
+	UMD_PlayerInspectComponent* InspectComp = nullptr;
 
 	void UpdateInteractionFocus();
 	void ClearInteractionFocus();

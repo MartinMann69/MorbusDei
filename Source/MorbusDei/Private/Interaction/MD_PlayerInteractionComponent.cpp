@@ -4,6 +4,7 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/MD_InteractInterface.h"
+#include "Interaction/MD_PlayerInspectComponent.h"
 
 UMD_PlayerInteractionComponent::UMD_PlayerInteractionComponent()
 {
@@ -15,6 +16,7 @@ void UMD_PlayerInteractionComponent::BeginPlay()
 	Super::BeginPlay();
 
 	OwningPawn = Cast<APawn>(GetOwner());
+	InspectComp = GetOwner()->FindComponentByClass<UMD_PlayerInspectComponent>();
 }
 
 void UMD_PlayerInteractionComponent::TickComponent(
@@ -30,10 +32,17 @@ void UMD_PlayerInteractionComponent::TickComponent(
 
 void UMD_PlayerInteractionComponent::Interact()
 {
+	if (InspectComp && InspectComp->IsInspecting())
+	{
+		InspectComp->EndInspect();
+		return;
+	}
+
 	if (!CurrentFocusedInteractable)
 	{
 		return;
 	}
+
 	UE_LOG(LogTemp, Warning, TEXT("Interacted"));
 	IMD_InteractInterface::Execute_Interact(CurrentFocusedInteractable, OwningPawn);
 }
@@ -52,6 +61,12 @@ void UMD_PlayerInteractionComponent::ClearInteractionFocus()
 
 void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 {
+	if (InspectComp && InspectComp->IsInspecting())
+	{
+		ClearInteractionFocus();
+		return;
+	}
+	
 	if (!OwningPawn || !OwningPawn->GetController() || !GetWorld())
 	{
 		ClearInteractionFocus();
