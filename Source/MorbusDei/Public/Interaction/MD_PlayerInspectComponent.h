@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -7,20 +5,20 @@
 #include "MD_PlayerInspectComponent.generated.h"
 
 class APawn;
-class AMD_Inspectable;
 class USceneComponent;
+class UMD_InspectableComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class MORBUSDEI_API UMD_PlayerInspectComponent : public UActorComponent
 {
 	GENERATED_BODY()
-	
+
 public:
 	UMD_PlayerInspectComponent();
 
 	virtual void BeginPlay() override;
 
-	bool StartInspect(AMD_Inspectable* Item);
+	bool StartInspect(UMD_InspectableComponent* Inspectable);
 	void EndInspect();
 	void RotateInspectedItem(const FVector2D& LookInput);
 	void ZoomInspectedItem(float ZoomInput);
@@ -32,12 +30,12 @@ protected:
 
 	FVector InspectViewLocation = FVector::ZeroVector;
 	FRotator InspectViewRotation = FRotator::ZeroRotator;
-	
+
 	UPROPERTY()
 	APawn* OwningPawn = nullptr;
 
 	UPROPERTY()
-	AMD_Inspectable* CurrentInspectedItem = nullptr;
+	UMD_InspectableComponent* CurrentInspectable = nullptr;
 
 	UPROPERTY()
 	USceneComponent* InspectPivot = nullptr;

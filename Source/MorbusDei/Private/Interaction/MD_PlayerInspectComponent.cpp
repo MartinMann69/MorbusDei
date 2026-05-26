@@ -5,7 +5,7 @@
 #include "Components/SceneComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
-#include "Interaction/MD_Inspectable.h"
+#include "Interaction/MD_InspectableComponent.h"
 
 // Sets default values
 UMD_PlayerInspectComponent::UMD_PlayerInspectComponent()
@@ -21,9 +21,9 @@ void UMD_PlayerInspectComponent::BeginPlay()
 	EnsureInspectPivot();
 }
 
-bool UMD_PlayerInspectComponent::StartInspect(AMD_Inspectable* Item)
+bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspectable)
 {
-	if (!Item)
+	if (!Inspectable || !Inspectable->CanInspect())
 	{
 		return false;
 	}
@@ -45,27 +45,27 @@ bool UMD_PlayerInspectComponent::StartInspect(AMD_Inspectable* Item)
 		return false;
 	}
 	
-	if (CurrentInspectedItem)
+	if (CurrentInspectable)
 	{
 		EndInspect();
 	}
 	
 	OwningPawn->GetController()->GetPlayerViewPoint(InspectViewLocation, InspectViewRotation);
 
-	const float MinDistance = FMath::Min(Item->GetMinInspectDistance(), Item->GetMaxInspectDistance());
-	const float MaxDistance = FMath::Max(Item->GetMinInspectDistance(), Item->GetMaxInspectDistance());
+	const float MinDistance = FMath::Min(Inspectable->GetMinInspectDistance(), Inspectable->GetMaxInspectDistance());
+	const float MaxDistance = FMath::Max(Inspectable->GetMinInspectDistance(), Inspectable->GetMaxInspectDistance());
 
-	CurrentInspectDistance = FMath::Clamp(Item->GetInspectDistance(), MinDistance, MaxDistance);
+	CurrentInspectDistance = FMath::Clamp(Inspectable->GetInspectDistance(), MinDistance, MaxDistance);
 	
 	const FVector PivotLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
 
 	InspectPivot->SetWorldLocationAndRotation(PivotLocation, InspectViewRotation);
 
-	CurrentInspectedItem = Item;
+	CurrentInspectable = Inspectable;
 
-	if (!CurrentInspectedItem->StartInspect(OwningPawn, InspectPivot))
+	if (!CurrentInspectable->StartInspect(OwningPawn, InspectPivot))
 	{
-		CurrentInspectedItem = nullptr;
+		CurrentInspectable = nullptr;
 		return false;
 	}
 
@@ -74,28 +74,26 @@ bool UMD_PlayerInspectComponent::StartInspect(AMD_Inspectable* Item)
 
 void UMD_PlayerInspectComponent::EndInspect()
 {
-	if (!CurrentInspectedItem)
+	if (!CurrentInspectable)
 	{
 		return;
 	}
 
-	AMD_Inspectable* ItemToEnd = CurrentInspectedItem;
-	CurrentInspectedItem = nullptr;
+	UMD_InspectableComponent* InspectableToEnd = CurrentInspectable;
+	CurrentInspectable = nullptr;
 
-	ItemToEnd->EndInspect();
+	InspectableToEnd->EndInspect();
 }
 
 void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 {
-	if (!CurrentInspectedItem || !InspectPivot)
+	if (!CurrentInspectable || !InspectPivot)
 	{
 		return;
 	}
 
-	const float RotationSpeed = CurrentInspectedItem->GetRotationSpeed();
-
-	const float YawAmount = LookInput.X * RotationSpeed;
-	const float PitchAmount = LookInput.Y * RotationSpeed;
+	const float YawAmount = LookInput.X * CurrentInspectable->GetRotationSpeed();
+	const float PitchAmount = LookInput.Y * CurrentInspectable->GetRotationSpeed();
 
 	InspectPivot->AddWorldRotation(FRotator(0.f, YawAmount, 0.f));
 	InspectPivot->AddLocalRotation(FRotator(PitchAmount, 0.f, 0.f));
@@ -103,23 +101,23 @@ void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 
 void UMD_PlayerInspectComponent::ZoomInspectedItem(float ZoomInput)
 {
-	if (!CurrentInspectedItem || !InspectPivot)
+	if (!CurrentInspectable || !InspectPivot)
 	{
 		return;
 	}
 
 	const float MinDistance = FMath::Min(
-		CurrentInspectedItem->GetMinInspectDistance(),
-		CurrentInspectedItem->GetMaxInspectDistance()
+		CurrentInspectable->GetMinInspectDistance(),
+		CurrentInspectable->GetMaxInspectDistance()
 	);
 
 	const float MaxDistance = FMath::Max(
-		CurrentInspectedItem->GetMinInspectDistance(),
-		CurrentInspectedItem->GetMaxInspectDistance()
+		CurrentInspectable->GetMinInspectDistance(),
+		CurrentInspectable->GetMaxInspectDistance()
 	);
 
 	CurrentInspectDistance = FMath::Clamp(
-		CurrentInspectDistance + ZoomInput * CurrentInspectedItem->GetZoomSpeed(),
+		CurrentInspectDistance + ZoomInput * CurrentInspectable->GetZoomSpeed(),
 		MinDistance,
 		MaxDistance
 	);
@@ -127,22 +125,9 @@ void UMD_PlayerInspectComponent::ZoomInspectedItem(float ZoomInput)
 	UpdateInspectPivotLocation();
 }
 
-void UMD_PlayerInspectComponent::UpdateInspectPivotLocation()
-{
-	if (!InspectPivot)
-	{
-		return;
-	}
-
-	const FVector NewLocation =
-		InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
-
-	InspectPivot->SetWorldLocation(NewLocation);
-}
-
 bool UMD_PlayerInspectComponent::IsInspecting() const
 {
-	return CurrentInspectedItem != nullptr;
+	return CurrentInspectable != nullptr;
 }
 
 void UMD_PlayerInspectComponent::EnsureInspectPivot()
@@ -157,4 +142,16 @@ void UMD_PlayerInspectComponent::EnsureInspectPivot()
 
 	GetOwner()->AddInstanceComponent(InspectPivot);
 	InspectPivot->RegisterComponent();
+}
+
+void UMD_PlayerInspectComponent::UpdateInspectPivotLocation()
+{
+	if (!InspectPivot)
+	{
+		return;
+	}
+
+	const FVector NewLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
+
+	InspectPivot->SetWorldLocation(NewLocation);
 }

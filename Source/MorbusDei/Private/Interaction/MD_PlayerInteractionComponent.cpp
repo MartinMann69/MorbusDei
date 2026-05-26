@@ -4,6 +4,7 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/MD_InteractInterface.h"
+#include "Interaction/MD_InspectableComponent.h"
 #include "Interaction/MD_PlayerInspectComponent.h"
 
 UMD_PlayerInteractionComponent::UMD_PlayerInteractionComponent()
@@ -16,7 +17,11 @@ void UMD_PlayerInteractionComponent::BeginPlay()
 	Super::BeginPlay();
 
 	OwningPawn = Cast<APawn>(GetOwner());
-	InspectComp = GetOwner()->FindComponentByClass<UMD_PlayerInspectComponent>();
+
+	if (GetOwner())
+	{
+		InspectComp = GetOwner()->FindComponentByClass<UMD_PlayerInspectComponent>();
+	}
 }
 
 void UMD_PlayerInteractionComponent::TickComponent(
@@ -34,6 +39,31 @@ void UMD_PlayerInteractionComponent::Interact()
 {
 	if (InspectComp && InspectComp->IsInspecting())
 	{
+		return;
+	}
+
+	if (!CurrentFocusedInteractable)
+	{
+		return;
+	}
+
+	if (!IMD_InteractInterface::Execute_CanInteract(CurrentFocusedInteractable))
+	{
+		return;
+	}
+
+	IMD_InteractInterface::Execute_Interact(CurrentFocusedInteractable, OwningPawn);
+}
+
+void UMD_PlayerInteractionComponent::Inspect()
+{
+	if (!InspectComp)
+	{
+		return;
+	}
+
+	if (InspectComp->IsInspecting())
+	{
 		InspectComp->EndInspect();
 		return;
 	}
@@ -43,8 +73,16 @@ void UMD_PlayerInteractionComponent::Interact()
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("Interacted"));
-	IMD_InteractInterface::Execute_Interact(CurrentFocusedInteractable, OwningPawn);
+	UMD_InspectableComponent* Inspectable =
+		CurrentFocusedInteractable->FindComponentByClass<UMD_InspectableComponent>();
+
+	if (!Inspectable || !Inspectable->CanInspect())
+	{
+		return;
+	}
+
+	ClearInteractionFocus();
+	InspectComp->StartInspect(Inspectable);
 }
 
 void UMD_PlayerInteractionComponent::ClearInteractionFocus()
@@ -106,7 +144,12 @@ void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 	}
 
 	const bool bCanInteract = IMD_InteractInterface::Execute_CanInteract(HitActor);
-	if (!bCanInteract)
+
+	const UMD_InspectableComponent* Inspectable = HitActor->FindComponentByClass<UMD_InspectableComponent>();
+
+	const bool bCanInspect = Inspectable && Inspectable->CanInspect();
+	
+	if (!bCanInteract && !bCanInspect)
 	{
 		ClearInteractionFocus();
 		return;
@@ -121,7 +164,6 @@ void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 
 	CurrentFocusedInteractable = HitActor;
 	
-	UE_LOG(LogTemp, Warning, TEXT("Hit"));
 	IMD_InteractInterface::Execute_SetInteractPromptVisible(CurrentFocusedInteractable, true);
 	IMD_InteractInterface::Execute_Highlight(CurrentFocusedInteractable, true);
 }
