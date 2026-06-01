@@ -78,6 +78,7 @@ void AMD_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	EnhancedInput->BindAction(ZoomAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Zoom);
 	EnhancedInput->BindAction(MenuAction, ETriggerEvent::Started, this, &AMD_PlayerCharacter::ToggleEscapeMenu);
 	EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, InteractionComp, &UMD_PlayerInteractionComponent::Interact);
+	EnhancedInput->BindAction(InspectAction, ETriggerEvent::Started, InteractionComp, &UMD_PlayerInteractionComponent::Inspect);
 }
 
 void AMD_PlayerCharacter::Move(const FInputActionValue& Value)

@@ -17,15 +17,15 @@ class MORBUSDEI_API IMD_InteractInterface
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Interaction")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="MD|Interaction")
 	void Interact(APawn* Interactor);
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Interaction")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="MD|Interaction")
 	void SetInteractPromptVisible(bool bVisible);
 
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Interaction")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="MD|Interaction")
 	bool CanInteract() const;
 	
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Highlight")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="MD|Highlight")
 	void Highlight(bool bHighlight);
 };

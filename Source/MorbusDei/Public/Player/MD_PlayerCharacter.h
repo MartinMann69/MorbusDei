@@ -78,6 +78,9 @@ protected:
 	UInputAction* InteractAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
+	UInputAction* InspectAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputAction* ZoomAction;
 
 	UPROPERTY(EditAnywhere, Category="Interaction")
