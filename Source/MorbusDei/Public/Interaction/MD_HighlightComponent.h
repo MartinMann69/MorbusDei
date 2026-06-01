@@ -20,13 +20,13 @@ public:
 	void SetHighlighted(bool bHighlight);
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Highlight")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Highlight")
 	USceneComponent* HighlightRoot = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Highlight")
-	bool bCanHighlight = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Highlight")
+	bool bCanHighlight = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Highlight")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Highlight")
 	int32 CustomDepthStencilValue = 1;
 
 	void SetupHighlightStencil();

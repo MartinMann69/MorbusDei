@@ -4,6 +4,7 @@
 #include "Components/WidgetComponent.h"
 #include "Interaction/MD_HighlightComponent.h"
 #include "Interaction/MD_InteractPromptComponent.h"
+#include "Interaction/MD_InspectableComponent.h"
 
 AMD_Interactable::AMD_Interactable()
 {
@@ -31,6 +32,8 @@ AMD_Interactable::AMD_Interactable()
 
 	InteractPromptComponent = CreateDefaultSubobject<UMD_InteractPromptComponent>(TEXT("InteractPromptComponent"));
 	InteractPromptComponent->SetPromptWidget(InteractPromptWidget);
+
+	InspectableComponent = CreateDefaultSubobject<UMD_InspectableComponent>(TEXT("InspectableComponent"));
 }
 
 void AMD_Interactable::BeginPlay()

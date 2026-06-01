@@ -10,6 +10,7 @@
 class UStaticMeshComponent;
 class UWidgetComponent;
 class UMD_HighlightComponent;
+class UMD_InspectableComponent;
 class UMD_InteractPromptComponent;
 
 UCLASS()
@@ -31,17 +32,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	USceneComponent* ToggleableObjects;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Interaction")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Interaction")
 	UWidgetComponent* InteractPromptWidget;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Components")
 	UMD_HighlightComponent* HighlightComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Components")
+	UMD_InspectableComponent* InspectableComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Components")
 	UMD_InteractPromptComponent* InteractPromptComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Interaction")
-	bool bCanInteract = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Interaction")
+	bool bCanInteract = false;
 
 
 public:

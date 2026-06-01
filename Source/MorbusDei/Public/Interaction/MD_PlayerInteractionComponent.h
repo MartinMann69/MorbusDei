@@ -24,9 +24,10 @@ public:
 	) override;
 
 	void Interact();
+	void Inspect();
 
 protected:
-	UPROPERTY(EditAnywhere, Category="Interaction")
+	UPROPERTY(EditAnywhere, Category="MD|Interaction")
 	float InteractDistance = 500.0f;
 
 	UPROPERTY()
