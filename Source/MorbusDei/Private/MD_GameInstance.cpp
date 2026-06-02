@@ -3,7 +3,6 @@
 #include "Audio/MD_AudioSettingsSave.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundClass.h"
-#include "Sound/SoundMix.h"
 
 void UMD_GameInstance::Init()
 {
@@ -74,11 +73,7 @@ bool UMD_GameInstance::SaveAudioSettings()
 {
 	UMD_AudioSettingsSave* Settings = GetOrCreateAudioSettings();
 
-	return Settings &&
-		UGameplayStatics::SaveGameToSlot(
-			Settings,
-			AudioSettingsSlot,
-			AudioSettingsUserIndex);
+	return Settings && UGameplayStatics::SaveGameToSlot(Settings, AudioSettingsSlot, AudioSettingsUserIndex);
 }
 
 float UMD_GameInstance::GetMasterVolume() const
@@ -98,21 +93,14 @@ float UMD_GameInstance::GetSFXVolume() const
 
 void UMD_GameInstance::LoadAudioSettings()
 {
-	if (UGameplayStatics::DoesSaveGameExist(
-		AudioSettingsSlot,
-		AudioSettingsUserIndex))
+	if (UGameplayStatics::DoesSaveGameExist(AudioSettingsSlot, AudioSettingsUserIndex))
 	{
-		AudioSettings = Cast<UMD_AudioSettingsSave>(
-			UGameplayStatics::LoadGameFromSlot(
-				AudioSettingsSlot,
-				AudioSettingsUserIndex));
+		AudioSettings = Cast<UMD_AudioSettingsSave>(UGameplayStatics::LoadGameFromSlot(AudioSettingsSlot, AudioSettingsUserIndex));
 	}
 
 	if (!AudioSettings)
 	{
-		AudioSettings = Cast<UMD_AudioSettingsSave>(
-			UGameplayStatics::CreateSaveGameObject(
-				UMD_AudioSettingsSave::StaticClass()));
+		AudioSettings = Cast<UMD_AudioSettingsSave>(UGameplayStatics::CreateSaveGameObject(UMD_AudioSettingsSave::StaticClass()));
 
 		SaveAudioSettings();
 	}
@@ -122,17 +110,13 @@ UMD_AudioSettingsSave* UMD_GameInstance::GetOrCreateAudioSettings()
 {
 	if (!AudioSettings)
 	{
-		AudioSettings = Cast<UMD_AudioSettingsSave>(
-			UGameplayStatics::CreateSaveGameObject(
-				UMD_AudioSettingsSave::StaticClass()));
+		AudioSettings = Cast<UMD_AudioSettingsSave>(UGameplayStatics::CreateSaveGameObject(UMD_AudioSettingsSave::StaticClass()));
 	}
 
 	return AudioSettings;
 }
 
-void UMD_GameInstance::ApplyClassVolume(
-	USoundClass* SoundClass,
-	float Volume) const
+void UMD_GameInstance::ApplyClassVolume(USoundClass* SoundClass, float Volume) const
 {
 	if (!VolumeSettings || !SoundClass)
 	{
