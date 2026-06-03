@@ -12,6 +12,7 @@ class UWidgetComponent;
 class UMD_HighlightComponent;
 class UMD_InspectableComponent;
 class UMD_InteractPromptComponent;
+class AMD_AudioZone;
 
 UCLASS()
 class MORBUSDEI_API AMD_Interactable : public AActor, public IMD_InteractInterface
@@ -46,6 +47,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Interaction")
 	bool bCanInteract = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
+	TSubclassOf<AMD_AudioZone> AudioZoneClass = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
+	bool bSpawnAudioZoneOnlyOnce = true;
+
+	UPROPERTY()
+	AMD_AudioZone* SpawnedAudioZone = nullptr;
 
 
 public:

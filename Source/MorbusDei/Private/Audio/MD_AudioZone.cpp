@@ -6,6 +6,7 @@
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
+#include "DynamicMesh/DynamicMesh3.h"
 #include "GameFramework/Pawn.h"
 
 AMD_AudioZone::AMD_AudioZone()
@@ -17,11 +18,9 @@ AMD_AudioZone::AMD_AudioZone()
 
 	Trigger = CreateDefaultSubobject<UBoxComponent>(TEXT("Trigger"));
 	Trigger->SetupAttachment(Root);
-	Trigger->SetBoxExtent(TriggerExtent);
-	Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	Trigger->SetGenerateOverlapEvents(true);
+	Trigger->SetHiddenInGame(true);
 
 	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
 	AudioComponent->SetupAttachment(Root);
@@ -32,7 +31,7 @@ void AMD_AudioZone::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	Trigger->SetBoxExtent(TriggerExtent);
+	UpdateTriggerState();
 	AudioComponent->SetAttenuationSettings(AttenuationSettings);
 }
 
@@ -40,9 +39,14 @@ void AMD_AudioZone::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	Trigger->OnComponentBeginOverlap.AddDynamic(this, &AMD_AudioZone::HandleBeginOverlap);
+	UpdateTriggerState();
 
-	Trigger->OnComponentEndOverlap.AddDynamic(this, &AMD_AudioZone::HandleEndOverlap);
+	if (UsesTrigger())
+	{
+		Trigger->OnComponentBeginOverlap.AddDynamic(this, &AMD_AudioZone::HandleBeginOverlap);
+
+		Trigger->OnComponentEndOverlap.AddDynamic(this, &AMD_AudioZone::HandleEndOverlap);
+	}
 
 	AudioComponent->OnAudioFinished.AddDynamic(this, &AMD_AudioZone::HandleAudioFinished);
 
@@ -60,6 +64,12 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		return;
 	}
+	
+	if (AudioComponent->IsPlaying())
+	{
+		return;
+	}
+	
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
 	
@@ -142,6 +152,7 @@ void AMD_AudioZone::HandleEndOverlap(
 
 void AMD_AudioZone::HandleAudioFinished()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Destroying audio component"));
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
 	const bool bFinishedNaturally = !bStopRequested;
@@ -175,4 +186,20 @@ void AMD_AudioZone::HandlePlaybackLimitReached()
 {
 	bPlaybackLimitReached = true;
 	StopZoneSound();
+}
+
+bool AMD_AudioZone::UsesTrigger() const
+{
+	return bPlayWhenPlayerEnters || bStopWhenPlayerLeaves;
+}
+
+void AMD_AudioZone::UpdateTriggerState()
+{
+	const bool bUsesTrigger = UsesTrigger();
+
+	Trigger->SetBoxExtent(TriggerExtent);
+	Trigger->SetVisibility(bUsesTrigger);
+	Trigger->SetHiddenInGame(true);
+	Trigger->SetGenerateOverlapEvents(bUsesTrigger);
+	Trigger->SetCollisionEnabled(bUsesTrigger ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 }

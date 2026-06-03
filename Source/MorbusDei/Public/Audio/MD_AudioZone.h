@@ -114,9 +114,11 @@ private:
 	UFUNCTION()
 	void HandleAudioFinished();
 	void HandlePlaybackLimitReached();
-
 	void ConfigureAudioComponent();
+	void UpdateTriggerState();
+	
 	bool IsPlayerActor(const AActor* Actor) const;
+	bool UsesTrigger() const;
 
 	bool bStopRequested = false;
 	bool bPlaybackLimitReached = false;
