@@ -27,12 +27,12 @@ AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 	SpringArm->SetupAttachment(RootComponent);
 	SpringArm->TargetArmLength = 700.0f;
 	SpringArm->bDoCollisionTest = false;
-	SpringArm->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
+	SpringArm->SetRelativeLocation(FVector::ZeroVector);
 
 	PreviewCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("PreviewCamera"));
 	PreviewCamera->SetupAttachment(SpringArm);
 	PreviewCamera->SetAutoActivate(true);
-	PreviewCamera->SetRelativeLocation(FVector(0.0f, 65.0f, 0.0f));
+	PreviewCamera->SetRelativeLocation(FVector::ZeroVector);
 	PreviewCamera->FieldOfView = 35.0f;
 
 	RectLight = CreateDefaultSubobject<URectLightComponent>(TEXT("RectLight"));
@@ -135,8 +135,8 @@ void AMD_MenuPreviewRig::ClearPreview()
 
 void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
 {
-	PreviewYaw += DeltaX * RotationSpeed;
-	PreviewPitch = FMath::Clamp(PreviewPitch + DeltaY * RotationSpeed, -45.0f, 45.0f);
+	PreviewYaw -= DeltaX * RotationSpeed;
+	PreviewPitch = FMath::Clamp(PreviewPitch + DeltaY * RotationSpeed, -180.0f, 180.0f);
 
 	PreviewPivot->SetRelativeRotation(FRotator(PreviewPitch, PreviewYaw, 0.0f));
 }
