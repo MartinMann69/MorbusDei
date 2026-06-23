@@ -5,6 +5,7 @@
 #include "Interaction/MD_HighlightComponent.h"
 #include "Interaction/MD_InteractPromptComponent.h"
 #include "Interaction/MD_InspectableComponent.h"
+#include "Audio/MD_AudioZone.h"
 
 AMD_Interactable::AMD_Interactable()
 {
@@ -46,6 +47,26 @@ void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 	UE_LOG(LogTemp, Warning, TEXT("%s interacted with %s"),*GetNameSafe(Interactor),*GetNameSafe(this));
 	GEngine->AddOnScreenDebugMessage(-1,2.0f,FColor::Green,FString::Printf(TEXT("Interacted with %s"), *GetNameSafe(this)));
 
+	if (AudioZoneClass)
+	{
+		const bool bShouldSpawnAudioZone = !IsValid(SpawnedAudioZone) && (!bSpawnAudioZoneOnlyOnce || SpawnedAudioZone == nullptr);
+
+		if (bShouldSpawnAudioZone)
+		{
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.Owner = this;
+			SpawnParams.Instigator = Interactor;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+			SpawnedAudioZone = GetWorld()->SpawnActor<AMD_AudioZone>(AudioZoneClass, GetActorTransform(), SpawnParams);
+		}
+
+		if (IsValid(SpawnedAudioZone))
+		{
+			SpawnedAudioZone->PlayZoneSound();
+		}
+	}
+	
 	if (!ToggleableObjects)
 	{
 		return;
