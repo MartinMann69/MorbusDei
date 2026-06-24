@@ -109,6 +109,21 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 		InspectComp->RotateInspectedItem(LookAxisVector);
 		return;
 	}
+
+	float CurrentSensitivity = MouseSensitivity;
+
+	if (CachedPlayerController) 
+	{
+		const float GamepadX = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightX);
+		const float GamepadY = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightY);
+
+		if (FMath::Abs(GamepadX) > 0.0f || FMath::Abs(GamepadY) > 0.0f)
+		{
+			CurrentSensitivity = GamepadSensitivity;
+		}
+	}
+
+	LookAxisVector *= CurrentSensitivity;
 	
 	AddControllerYawInput(LookAxisVector.X);
 	AddControllerPitchInput(LookAxisVector.Y);

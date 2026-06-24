@@ -45,6 +45,12 @@ public:
 	UPROPERTY()
 	UUserWidget* PauseMenuWidget;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	float MouseSensitivity = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	float GamepadSensitivity = 1.0f;
+
 protected:
 
 	UPROPERTY()
