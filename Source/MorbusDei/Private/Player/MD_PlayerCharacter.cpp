@@ -59,6 +59,17 @@ void AMD_PlayerCharacter::BeginPlay()
 	ULocalPlayer* LocalPlayer = CachedPlayerController->GetLocalPlayer();
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
 	Subsystem->AddMappingContext(DefaultMappingContext, 0);
+
+
+	//add crosshair to viewport
+	if (CrosshairWidgetClass && CachedPlayerController)
+	{
+		CrosshairWidget = CreateWidget<UUserWidget>(CachedPlayerController, CrosshairWidgetClass);
+		if (CrosshairWidget)
+		{
+			CrosshairWidget->AddToViewport();
+		}
+	} 
 }
 
 // Called every frame
@@ -109,6 +120,21 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 		InspectComp->RotateInspectedItem(LookAxisVector);
 		return;
 	}
+
+	float CurrentSensitivity = MouseSensitivity;
+
+	if (CachedPlayerController) 
+	{
+		const float GamepadX = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightX);
+		const float GamepadY = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightY);
+
+		if (FMath::Abs(GamepadX) > 0.0f || FMath::Abs(GamepadY) > 0.0f)
+		{
+			CurrentSensitivity = GamepadSensitivity;
+		}
+	}
+
+	LookAxisVector *= CurrentSensitivity;
 	
 	AddControllerYawInput(LookAxisVector.X);
 	AddControllerPitchInput(LookAxisVector.Y);
