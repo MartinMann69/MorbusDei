@@ -24,6 +24,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="MD|Audio")
 	void SetSFXVolume(float Value);
+	
+	UFUNCTION(BlueprintCallable, Category="MD|Audio")
+	void SetVoiceVolume(float Value);
 
 	UFUNCTION(BlueprintCallable, Category="MD|Audio")
 	void ApplyAudioSettings();
@@ -39,6 +42,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="MD|Audio")
 	float GetSFXVolume() const;
+	
+	UFUNCTION(BlueprintPure, Category="MD|Audio")
+	float GetVoiceVolume() const;
 
 protected:
 	virtual void OnStart() override;
@@ -52,6 +58,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Audio")
 	TObjectPtr<USoundClass> SFXSoundClass = nullptr;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Audio")
+	TObjectPtr<USoundClass> VoiceSoundClass = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Audio")
 	TArray<TObjectPtr<USoundClass>> MasterOnlySoundClasses;
