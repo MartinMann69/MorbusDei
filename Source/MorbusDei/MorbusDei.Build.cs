@@ -17,7 +17,8 @@ public class MorbusDei : ModuleRules
 			"EnhancedInput",
 			"UMG",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"MediaAssets"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
