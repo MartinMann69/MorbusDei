@@ -6,6 +6,8 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/MD_InspectableComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
 UMD_PlayerInspectComponent::UMD_PlayerInspectComponent()
@@ -81,21 +83,21 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 		return false;
 	}
 	
-	OwningPawn->GetController()->GetPlayerViewPoint(InspectViewLocation, InspectViewRotation);
+	StopOwnerMovementForInspect();
 
-	const float MinDistance = FMath::Min(Inspectable->GetMinInspectDistance(), Inspectable->GetMaxInspectDistance());
-	const float MaxDistance = FMath::Max(Inspectable->GetMinInspectDistance(), Inspectable->GetMaxInspectDistance());
+	if (!UpdateInspectViewFromCamera())
+	{
+		return false;
+	}
 
-	CurrentInspectDistance = FMath::Clamp(Inspectable->GetInspectDistance(), MinDistance, MaxDistance);
+	CurrentInspectDistance = Inspectable->GetDesiredInspectDistance();
 	
 	TargetInspectDistance = CurrentInspectDistance;
 	
 	RotationVelocity = FVector2D::ZeroVector;
 	CurrentInspectPitch = 0.f;
 	
-	const FVector PivotLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
-
-	const FTransform DesiredPivotTransform(InspectViewRotation, PivotLocation, FVector::OneVector);
+	const FTransform DesiredPivotTransform = MakeDesiredPivotTransform();
 
 	CurrentInspectable = Inspectable;
 
@@ -143,6 +145,9 @@ void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 	{
 		return;
 	}
+	
+	UpdateInspectViewFromCamera();
+	TransitionTargetTransform = MakeDesiredPivotTransform();
 
 	TransitionElapsed += DeltaTime;
 
@@ -268,12 +273,9 @@ void UMD_PlayerInspectComponent::UpdateSmoothZoom(float DeltaTime)
 		return;
 	}
 
+	UpdateInspectViewFromCamera();
+	
 	const float NewDistance = FMath::FInterpTo(CurrentInspectDistance, TargetInspectDistance, DeltaTime, ZoomInterpSpeed);
-
-	if (FMath::IsNearlyEqual(CurrentInspectDistance, NewDistance, 0.01f))
-	{
-		return;
-	}
 
 	CurrentInspectDistance = NewDistance;
 	UpdateInspectPivotLocation();
@@ -308,4 +310,34 @@ void UMD_PlayerInspectComponent::UpdateInspectPivotLocation()
 	const FVector NewLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
 
 	InspectPivot->SetWorldLocation(NewLocation);
+}
+
+bool UMD_PlayerInspectComponent::UpdateInspectViewFromCamera()
+{
+	if (!OwningPawn || !OwningPawn->GetController())
+	{
+		return false;
+	}
+
+	OwningPawn->GetController()->GetPlayerViewPoint(InspectViewLocation, InspectViewRotation);
+
+	return true;
+}
+
+FTransform UMD_PlayerInspectComponent::MakeDesiredPivotTransform() const
+{
+	const FVector PivotLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
+
+	return FTransform(InspectViewRotation, PivotLocation, FVector::OneVector);
+}
+
+void UMD_PlayerInspectComponent::StopOwnerMovementForInspect()
+{
+	ACharacter* OwnerCharacter = Cast<ACharacter>(OwningPawn);
+	if (!OwnerCharacter || !OwnerCharacter->GetCharacterMovement())
+	{
+		return;
+	}
+
+	OwnerCharacter->GetCharacterMovement()->StopMovementImmediately();
 }

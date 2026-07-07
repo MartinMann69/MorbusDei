@@ -104,6 +104,35 @@ FVector UMD_InspectableComponent::GetInspectableBoundsCenter() const
 	return Owner->GetActorLocation();
 }
 
+float UMD_InspectableComponent::GetInspectableBoundsRadius() const
+{
+	const AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return 0.f;
+	}
+
+	FBox Bounds(EForceInit::ForceInit);
+
+	TArray<UStaticMeshComponent*> MeshComponents;
+	Owner->GetComponents<UStaticMeshComponent>(MeshComponents);
+
+	for (UStaticMeshComponent* MeshComp : MeshComponents)
+	{
+		if (MeshComp && MeshComp->GetStaticMesh())
+		{
+			Bounds += MeshComp->Bounds.GetBox();
+		}
+	}
+
+	if (Bounds.IsValid)
+	{
+		return Bounds.GetExtent().Size();
+	}
+
+	return 0.f;
+}
+
 void UMD_InspectableComponent::DisableOwnerPhysics()
 {
 	SimulatingPrimitiveComponents.Reset();
@@ -138,4 +167,21 @@ void UMD_InspectableComponent::RestoreOwnerPhysics()
 	}
 
 	SimulatingPrimitiveComponents.Reset();
+}
+
+float UMD_InspectableComponent::GetDesiredInspectDistance() const
+{
+	const float MinDistance = FMath::Min(MinInspectDistance, MaxInspectDistance);
+	const float MaxDistance = FMath::Max(MinInspectDistance, MaxInspectDistance);
+
+	if (!bUseAutomaticDistance)
+	{
+		return FMath::Clamp(InspectDistance, MinDistance, MaxDistance);
+	}
+
+	const float BoundsRadius = GetInspectableBoundsRadius();
+
+	const float AutomaticDistance = BoundsRadius * AutomaticDistanceMultiplier + AutomaticDistancePadding;
+
+	return FMath::Clamp(AutomaticDistance, MinDistance, MaxDistance);
 }

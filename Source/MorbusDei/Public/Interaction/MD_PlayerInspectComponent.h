@@ -7,7 +7,6 @@
 class APawn;
 class USceneComponent;
 class UMD_InspectableComponent;
-class UUserWidget;
 
 UENUM(BlueprintType)
 enum class EMD_InspectState : uint8
@@ -93,4 +92,8 @@ protected:
 	void UpdateExitTransition(float DeltaTime);
 	void UpdateSmoothZoom(float DeltaTime);
 	void UpdateSmoothRotation(float DeltaTime);
+	
+	bool UpdateInspectViewFromCamera();
+	FTransform MakeDesiredPivotTransform() const;
+	void StopOwnerMovementForInspect();
 };
