@@ -27,6 +27,8 @@ public:
 	float GetMaxInspectDistance() const { return MaxInspectDistance; }
 	float GetZoomSpeed() const { return ZoomSpeed; }
 	float GetRotationSpeed() const { return RotationSpeed; }
+	float GetEnterDuration() const { return EnterDuration; }
+	float GetExitDuration() const { return ExitDuration; }
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Inspection")
@@ -36,7 +38,7 @@ protected:
 	float InspectDistance = 100.f;
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection")
-	float RotationSpeed = 2.f;
+	float RotationSpeed = 0.3f;
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Zoom")
 	float MinInspectDistance = 50.f;
@@ -46,6 +48,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Zoom")
 	float ZoomSpeed = 10.f;
+	
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Transition", meta=(ClampMin="0.0"))
+	float EnterDuration = 0.3f;
+
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Transition", meta=(ClampMin="0.0"))
+	float ExitDuration = 0.25f;
 
 	UPROPERTY()
 	FTransform OriginalTransform;

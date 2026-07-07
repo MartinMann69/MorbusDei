@@ -15,7 +15,7 @@ bool UMD_InspectableComponent::CanInspect() const
 	return bCanInspect && !bIsInspecting;
 }
 
-bool UMD_InspectableComponent::StartInspect(APawn* Interactor, USceneComponent* InspectPivot)
+bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* InspectPivot)
 {
 	AActor* Owner = GetOwner();
 
@@ -31,20 +31,11 @@ bool UMD_InspectableComponent::StartInspect(APawn* Interactor, USceneComponent* 
 	DisableOwnerPhysics();
 	Owner->SetActorEnableCollision(false);
 
-	Owner->SetActorRotation(
-		InspectPivot->GetComponentRotation(),
-		ETeleportType::TeleportPhysics
-	);
+	const FVector OriginalBoundsCenter = GetInspectableBoundsCenter();
 
-	const FVector BoundsCenter = GetInspectableBoundsCenter();
-	const FVector CenterOffset = BoundsCenter - Owner->GetActorLocation();
-	const FVector NewActorLocation = InspectPivot->GetComponentLocation() - CenterOffset;
-
-	Owner->SetActorLocation(
-		NewActorLocation,
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
+	InspectPivot->SetWorldLocationAndRotation(
+		OriginalBoundsCenter,
+		Owner->GetActorRotation()
 	);
 
 	Owner->AttachToComponent(
