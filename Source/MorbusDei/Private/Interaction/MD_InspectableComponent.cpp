@@ -4,6 +4,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Actor.h"
+#include "Kismet/GameplayStatics.h"
 
 UMD_InspectableComponent::UMD_InspectableComponent()
 {
@@ -22,6 +23,11 @@ bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* I
 	if (!CanInspect() || !Owner || !Interactor || !InspectPivot)
 	{
 		return false;
+	}
+	
+	if (InspectSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, InspectSound, Owner->GetActorLocation());
 	}
 
 	bIsInspecting = true;
