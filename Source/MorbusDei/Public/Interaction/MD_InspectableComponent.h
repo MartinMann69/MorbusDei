@@ -7,6 +7,7 @@
 class APawn;
 class USceneComponent;
 class UPrimitiveComponent;
+class USoundBase;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class MORBUSDEI_API UMD_InspectableComponent : public UActorComponent
@@ -70,6 +71,9 @@ protected:
 
 	UPROPERTY()
 	TArray<UPrimitiveComponent*> SimulatingPrimitiveComponents;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Inspection")
+	USoundBase* InspectSound = nullptr;
 
 	bool bIsInspecting = false;
 	bool bOriginalActorCollisionEnabled = true;

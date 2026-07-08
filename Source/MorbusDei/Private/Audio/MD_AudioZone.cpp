@@ -203,3 +203,8 @@ void AMD_AudioZone::UpdateTriggerState()
 	Trigger->SetGenerateOverlapEvents(bUsesTrigger);
 	Trigger->SetCollisionEnabled(bUsesTrigger ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 }
+
+bool AMD_AudioZone::IsZoneSoundPlaying() const
+{
+	return AudioComponent && AudioComponent->IsPlaying();
+}

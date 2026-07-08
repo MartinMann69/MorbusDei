@@ -5,8 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MD_InteractInterface.h"
+#include "TimerManager.h"
+
 #include "MD_Interactable.generated.h"
 
+class USoundBase;
 class UStaticMeshComponent;
 class UWidgetComponent;
 class UMD_HighlightComponent;
@@ -56,6 +59,19 @@ protected:
 
 	UPROPERTY()
 	AMD_AudioZone* SpawnedAudioZone = nullptr;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction")
+	USoundBase* InteractionSound = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction", meta=(ClampMin="0.0"))
+	float VoiceoverDelayAfterInteractionSound = 0.0f;
+
+	void PlayAssignedAudioZone(APawn* Interactor);
+	void PlayOneShotAtSelf(USoundBase* Sound) const;
+	bool IsVoiceoverAudioBlocked() const;
+
+	FTimerHandle VoiceoverDelayTimer;
+	bool bVoiceoverStartPending = false;
 
 
 public:
