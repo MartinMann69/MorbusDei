@@ -31,6 +31,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="MD|Audio")
 	void StopZoneSound();
+	
+	UFUNCTION(BlueprintPure, Category="MD|Audio")
+	bool IsZoneSoundPlaying() const;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Audio|Components")
@@ -61,37 +64,30 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
 	bool bStopWhenPlayerLeaves = true;
 
-	// Requires a matching Boolean input in the MetaSound.
+	// Requires a matching Boolean input in the MetaSound. Named "Loop"
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
 	bool bLoop = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(EditCondition="bLoop"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(EditCondition="bLoop"))
 	FName LoopParameterName = TEXT("Loop");
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(EditCondition="!bLoop"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(EditCondition="!bLoop"))
 	bool bDestroyAfterPlayback = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float VolumeMultiplier = 1.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(ClampMin="0.01"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.01"))
 	float PitchMultiplier = 1.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float FadeInDuration = 0.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float FadeOutDuration = 0.5f;
 	
 	// Zero means no playback limit.
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio",
-		meta=(ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float MaxPlaybackDuration = 0.0f;
 
 private:

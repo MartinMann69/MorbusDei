@@ -6,6 +6,7 @@
 #include "Interaction/MD_InteractPromptComponent.h"
 #include "Interaction/MD_InspectableComponent.h"
 #include "Audio/MD_AudioZone.h"
+#include "Kismet/GameplayStatics.h"
 
 AMD_Interactable::AMD_Interactable()
 {
@@ -45,25 +46,32 @@ void AMD_Interactable::BeginPlay()
 void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 {
 	UE_LOG(LogTemp, Warning, TEXT("%s interacted with %s"),*GetNameSafe(Interactor),*GetNameSafe(this));
-	GEngine->AddOnScreenDebugMessage(-1,2.0f,FColor::Green,FString::Printf(TEXT("Interacted with %s"), *GetNameSafe(this)));
-
-	if (AudioZoneClass)
+	if (GEngine)
 	{
-		const bool bShouldSpawnAudioZone = !IsValid(SpawnedAudioZone) && (!bSpawnAudioZoneOnlyOnce || SpawnedAudioZone == nullptr);
+		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Interacted with %s"), *GetNameSafe(this)));
+	}
+	
+	const bool bVoiceoverBlocked = IsVoiceoverAudioBlocked();
+	
+	if (!bVoiceoverBlocked)
+	{
+		PlayOneShotAtSelf(InteractionSound);
 
-		if (bShouldSpawnAudioZone)
+		if (AudioZoneClass)
 		{
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.Owner = this;
-			SpawnParams.Instigator = Interactor;
-			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			if (VoiceoverDelayAfterInteractionSound > 0.0f)
+			{
+				bVoiceoverStartPending = true;
 
-			SpawnedAudioZone = GetWorld()->SpawnActor<AMD_AudioZone>(AudioZoneClass, GetActorTransform(), SpawnParams);
-		}
+				FTimerDelegate VoiceoverDelegate;
+				VoiceoverDelegate.BindUObject(this, &AMD_Interactable::PlayAssignedAudioZone, Interactor);
 
-		if (IsValid(SpawnedAudioZone))
-		{
-			SpawnedAudioZone->PlayZoneSound();
+				GetWorldTimerManager().SetTimer(VoiceoverDelayTimer, VoiceoverDelegate, VoiceoverDelayAfterInteractionSound, false);
+			}
+			else
+			{
+				PlayAssignedAudioZone(Interactor);
+			}
 		}
 	}
 	
@@ -101,3 +109,50 @@ void AMD_Interactable::Highlight_Implementation(bool bHighlight)
 		HighlightComponent->SetHighlighted(bHighlight);
 	}
 }
+
+void AMD_Interactable::PlayAssignedAudioZone(APawn* Interactor)
+{
+	bVoiceoverStartPending = false;
+
+	if (!AudioZoneClass)
+	{
+		return;
+	}
+
+	if (IsValid(SpawnedAudioZone) && SpawnedAudioZone->IsZoneSoundPlaying())
+	{
+		return;
+	}
+
+	const bool bShouldSpawnAudioZone =
+		!IsValid(SpawnedAudioZone) && (!bSpawnAudioZoneOnlyOnce || SpawnedAudioZone == nullptr);
+
+	if (bShouldSpawnAudioZone)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.Instigator = Interactor;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		SpawnedAudioZone = GetWorld()->SpawnActor<AMD_AudioZone>(AudioZoneClass, GetActorTransform(), SpawnParams);
+	}
+
+	if (IsValid(SpawnedAudioZone))
+	{
+		SpawnedAudioZone->PlayZoneSound();
+	}
+}
+
+void AMD_Interactable::PlayOneShotAtSelf(USoundBase* Sound) const
+{
+	if (Sound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, GetActorLocation());
+	}
+}
+
+bool AMD_Interactable::IsVoiceoverAudioBlocked() const
+{
+	return bVoiceoverStartPending || (IsValid(SpawnedAudioZone) && SpawnedAudioZone->IsZoneSoundPlaying());
+}
+
