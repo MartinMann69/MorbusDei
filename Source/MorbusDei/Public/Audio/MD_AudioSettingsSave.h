@@ -18,4 +18,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category="MD|Audio")
 	float SFXVolume = 1.0f;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category="MD|Audio")
+	float VoiceVolume = 1.0f;
 };
