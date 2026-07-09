@@ -5,20 +5,9 @@
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
 #include "Internationalization/Text.h"
+#include "UI/Focus/GameUIFocusInputKeys.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameUIFocusValueRow, Log, All);
-
-namespace
-{
-FKey GetGameUIFocusVirtualAcceptKey()
-{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-	return EKeys::Virtual_Gamepad_Accept.GetVirtualKey();
-#else
-	return EKeys::Virtual_Accept;
-#endif
-}
-}
 
 UGameUIFocusValueRowWidget::UGameUIFocusValueRowWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -283,7 +272,7 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == GetGameUIFocusVirtualAcceptKey() || Key == EKeys::Gamepad_FaceButton_Bottom)
+	if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == GameUIFocusInputKeys::GetVirtualAcceptKey() || Key == EKeys::Gamepad_FaceButton_Bottom)
 	{
 		if (!CanInteractWithRow())
 		{

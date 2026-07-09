@@ -8,6 +8,7 @@
 #include "HAL/PlatformTime.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
+#include "UI/Focus/GameUIFocusInputKeys.h"
 #include "UI/Focus/GameUIFocusItemWidgetBase.h"
 #include "UI/Focus/GameUIFocusPageInterface.h"
 #include "UI/Focus/GameUIFocusPageWidgetBase.h"
@@ -25,20 +26,11 @@ FString FocusZoneToString(const EGameUIFocusZone Zone)
 	return FString::FromInt(static_cast<int32>(Zone));
 }
 
-FKey GetGameUIFocusVirtualAcceptKey()
-{
-#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
-	return EKeys::Virtual_Gamepad_Accept.GetVirtualKey();
-#else
-	return EKeys::Virtual_Accept;
-#endif
-}
-
 bool IsFocusTraceKey(const FKey& Key)
 {
 	return Key == EKeys::Enter
 		|| Key == EKeys::SpaceBar
-		|| Key == GetGameUIFocusVirtualAcceptKey()
+		|| Key == GameUIFocusInputKeys::GetVirtualAcceptKey()
 		|| Key == EKeys::Gamepad_FaceButton_Bottom
 		|| Key == EKeys::Left
 		|| Key == EKeys::Right
@@ -1053,7 +1045,7 @@ bool UGameUIFocusScreenWidgetBase::IsAcceptKey(const FKey& Key)
 {
 	return Key == EKeys::Enter
 		|| Key == EKeys::SpaceBar
-		|| Key == GetGameUIFocusVirtualAcceptKey()
+		|| Key == GameUIFocusInputKeys::GetVirtualAcceptKey()
 		|| Key == EKeys::Gamepad_FaceButton_Bottom;
 }
 
