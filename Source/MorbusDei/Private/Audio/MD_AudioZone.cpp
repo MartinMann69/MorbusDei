@@ -9,6 +9,8 @@
 #include "DynamicMesh/DynamicMesh3.h"
 #include "GameFramework/Pawn.h"
 
+TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveVoiceLineZone = nullptr;
+
 AMD_AudioZone::AMD_AudioZone()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -58,6 +60,12 @@ void AMD_AudioZone::BeginPlay()
 	}
 }
 
+void AMD_AudioZone::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ClearActiveVoiceLineIfNeeded();
+	Super::EndPlay(EndPlayReason);
+}
+
 void AMD_AudioZone::PlayZoneSound()
 {
 	if (!SoundToPlay || AudioComponent->IsPlaying())
@@ -74,6 +82,7 @@ void AMD_AudioZone::PlayZoneSound()
 	bPlaybackLimitReached = false;
 	
 	ConfigureAudioComponent();
+	StopCompetingVoiceLine();
 
 	if (!LoopParameterName.IsNone())
 	{
@@ -160,6 +169,7 @@ void AMD_AudioZone::HandleAudioFinished()
 
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
+	ClearActiveVoiceLineIfNeeded();
 
 	if (bShouldDestroy)
 	{
@@ -207,4 +217,42 @@ void AMD_AudioZone::UpdateTriggerState()
 bool AMD_AudioZone::IsZoneSoundPlaying() const
 {
 	return AudioComponent && AudioComponent->IsPlaying();
+}
+
+void AMD_AudioZone::StopCompetingVoiceLine()
+{
+	if (!bStopOtherVoiceLinesOnPlay)
+	{
+		return;
+	}
+
+	if (ActiveVoiceLineZone.IsValid() && ActiveVoiceLineZone.Get() != this)
+	{
+		ActiveVoiceLineZone->StopVoiceLineImmediately();
+	}
+
+	ActiveVoiceLineZone = this;
+}
+
+void AMD_AudioZone::StopVoiceLineImmediately()
+{
+	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
+
+	bStopRequested = true;
+	bPlaybackLimitReached = false;
+
+	if (AudioComponent && AudioComponent->IsPlaying())
+	{
+		AudioComponent->Stop();
+	}
+
+	ClearActiveVoiceLineIfNeeded();
+}
+
+void AMD_AudioZone::ClearActiveVoiceLineIfNeeded()
+{
+	if (ActiveVoiceLineZone.Get() == this)
+	{
+		ActiveVoiceLineZone.Reset();
+	}
 }

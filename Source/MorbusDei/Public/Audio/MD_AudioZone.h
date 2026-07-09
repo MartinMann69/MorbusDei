@@ -25,6 +25,7 @@ public:
 	
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION(BlueprintCallable, Category="MD|Audio")
 	void PlayZoneSound();
@@ -90,6 +91,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float MaxPlaybackDuration = 0.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Voice")
+	bool bStopOtherVoiceLinesOnPlay = true;
+
 private:
 	UFUNCTION()
 	void HandleBeginOverlap(
@@ -112,6 +116,9 @@ private:
 	void HandlePlaybackLimitReached();
 	void ConfigureAudioComponent();
 	void UpdateTriggerState();
+	void StopCompetingVoiceLine();
+	void StopVoiceLineImmediately();
+	void ClearActiveVoiceLineIfNeeded();
 	
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool UsesTrigger() const;
@@ -120,5 +127,7 @@ private:
 	bool bPlaybackLimitReached = false;
 	
 	FTimerHandle PlaybackLimitTimer;
+
+	static TWeakObjectPtr<AMD_AudioZone> ActiveVoiceLineZone;
 
 };
