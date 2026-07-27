@@ -17,6 +17,9 @@ class MORBUSDEI_API AMD_MenuPreviewRig : public AActor
 public:
 	AMD_MenuPreviewRig();
 
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
+
 	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
 	void ShowPreview(TSubclassOf<AActor> PreviewClass);
 
@@ -50,11 +53,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
 	float ZoomSpeed = 40.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.1"))
+	float ZoomInterpSpeed = 12.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
 	float MinZoom = 150.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
 	float MaxZoom = 800.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom")
+	float DefaultZoomDistance = 700.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.1"))
+	float AutomaticDistanceMultiplier = 2.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.0"))
+	float AutomaticDistancePadding = 35.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Menu Preview|Lighting")
 	TObjectPtr<URectLightComponent> RectLight;
@@ -77,6 +92,11 @@ private:
 
 	float PreviewYaw = 0.0f;
 	float PreviewPitch = 0.0f;
+	float CurrentZoomDistance = 700.0f;
+	float TargetZoomDistance = 700.0f;
 
 	bool GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const;
+	float GetClampedZoomDistance(float Distance) const;
+	float GetAutomaticZoomDistance(const FVector& BoundsExtent) const;
+	void SetZoomDistanceImmediate(float Distance);
 };

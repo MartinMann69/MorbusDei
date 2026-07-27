@@ -8,7 +8,8 @@
 
 AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	bFindCameraComponentWhenViewTarget = true;
 
 	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
@@ -68,6 +69,33 @@ AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 	RectLight3->SetSourceHeight(550.0f);
 }
 
+void AMD_MenuPreviewRig::BeginPlay()
+{
+	Super::BeginPlay();
+
+	SetZoomDistanceImmediate(DefaultZoomDistance);
+	SetActorTickEnabled(false);
+}
+
+void AMD_MenuPreviewRig::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (!SpringArm)
+	{
+		return;
+	}
+
+	if (FMath::IsNearlyEqual(CurrentZoomDistance, TargetZoomDistance, 0.1f))
+	{
+		SetZoomDistanceImmediate(TargetZoomDistance);
+		return;
+	}
+
+	CurrentZoomDistance = FMath::FInterpTo(CurrentZoomDistance, TargetZoomDistance, DeltaSeconds, ZoomInterpSpeed);
+	SpringArm->TargetArmLength = CurrentZoomDistance;
+}
+
 void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 {
 	if (!PreviewClass || !GetWorld())
@@ -86,9 +114,9 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	const FTransform SpawnTransform(
-	PreviewSpawnRotation,
-	SpawnPoint->GetComponentLocation(),
-	SpawnPoint->GetComponentScale()
+		PreviewSpawnRotation,
+		SpawnPoint->GetComponentLocation(),
+		SpawnPoint->GetComponentScale()
 	);
 
 	CurrentPreviewActor = GetWorld()->SpawnActor<AActor>(
@@ -104,6 +132,8 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 
 	CurrentPreviewActor->SetActorEnableCollision(false);
 
+	float DesiredZoomDistance = GetClampedZoomDistance(DefaultZoomDistance);
+
 	FVector MeshCenter;
 	FVector MeshExtent;
 	if (GetStaticMeshBounds(CurrentPreviewActor, MeshCenter, MeshExtent))
@@ -115,7 +145,12 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 			nullptr,
 			ETeleportType::TeleportPhysics
 		);
+
+		DesiredZoomDistance = GetAutomaticZoomDistance(MeshExtent);
 	}
+
+	SetZoomDistanceImmediate(DesiredZoomDistance);
+	SetActorTickEnabled(true);
 
 	CurrentPreviewActor->AttachToComponent(
 		PreviewPivot,
@@ -131,6 +166,7 @@ void AMD_MenuPreviewRig::ClearPreview()
 	}
 
 	CurrentPreviewActor = nullptr;
+	SetActorTickEnabled(false);
 }
 
 void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
@@ -143,11 +179,13 @@ void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
 
 void AMD_MenuPreviewRig::ZoomPreview(float WheelDelta)
 {
-	SpringArm->TargetArmLength = FMath::Clamp(
-		SpringArm->TargetArmLength - WheelDelta * ZoomSpeed,
-		MinZoom,
-		MaxZoom
-	);
+	if (!IsValid(CurrentPreviewActor) || !SpringArm)
+	{
+		return;
+	}
+
+	TargetZoomDistance = GetClampedZoomDistance(TargetZoomDistance - WheelDelta * ZoomSpeed);
+	SetActorTickEnabled(true);
 }
 
 bool AMD_MenuPreviewRig::GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
@@ -180,4 +218,31 @@ bool AMD_MenuPreviewRig::GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, 
 	OutCenter = CombinedBox.GetCenter();
 	OutExtent = CombinedBox.GetExtent();
 	return true;
+}
+
+float AMD_MenuPreviewRig::GetClampedZoomDistance(float Distance) const
+{
+	const float MinDistance = FMath::Min(MinZoom, MaxZoom);
+	const float MaxDistance = FMath::Max(MinZoom, MaxZoom);
+
+	return FMath::Clamp(Distance, MinDistance, MaxDistance);
+}
+
+float AMD_MenuPreviewRig::GetAutomaticZoomDistance(const FVector& BoundsExtent) const
+{
+	const float BoundsRadius = BoundsExtent.Size();
+	const float AutomaticDistance = BoundsRadius * AutomaticDistanceMultiplier + AutomaticDistancePadding;
+
+	return GetClampedZoomDistance(AutomaticDistance);
+}
+
+void AMD_MenuPreviewRig::SetZoomDistanceImmediate(float Distance)
+{
+	CurrentZoomDistance = GetClampedZoomDistance(Distance);
+	TargetZoomDistance = CurrentZoomDistance;
+
+	if (SpringArm)
+	{
+		SpringArm->TargetArmLength = CurrentZoomDistance;
+	}
 }
