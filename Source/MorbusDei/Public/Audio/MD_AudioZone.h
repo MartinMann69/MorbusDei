@@ -94,6 +94,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Voice")
 	bool bStopOtherVoiceLinesOnPlay = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Music")
+	bool bStopOtherBackgroundMusicOnPlay = false;
+
 private:
 	UFUNCTION()
 	void HandleBeginOverlap(
@@ -117,8 +120,10 @@ private:
 	void ConfigureAudioComponent();
 	void UpdateTriggerState();
 	void StopCompetingVoiceLine();
+	void StopCompetingBackgroundMusic();
 	void StopVoiceLineImmediately();
 	void ClearActiveVoiceLineIfNeeded();
+	void ClearActiveBackgroundMusicIfNeeded();
 	
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool UsesTrigger() const;
@@ -129,5 +134,6 @@ private:
 	FTimerHandle PlaybackLimitTimer;
 
 	static TWeakObjectPtr<AMD_AudioZone> ActiveVoiceLineZone;
+	static TWeakObjectPtr<AMD_AudioZone> ActiveBackgroundMusicZone;
 
 };
