@@ -49,6 +49,7 @@ protected:
 	float ZoomInterpSpeed = 12.f;
 	
 	FVector2D RotationVelocity = FVector2D::ZeroVector;
+	float CurrentInspectYaw = 0.f;
 	float CurrentInspectPitch = 0.f;
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Rotation", meta=(ClampMin="0.0"))
@@ -94,6 +95,6 @@ protected:
 	void UpdateSmoothRotation(float DeltaTime);
 	
 	bool UpdateInspectViewFromCamera();
-	FTransform MakeDesiredPivotTransform() const;
+	FTransform MakeDesiredPivotTransform(const UMD_InspectableComponent* Inspectable) const;
 	void StopOwnerMovementForInspect();
 };

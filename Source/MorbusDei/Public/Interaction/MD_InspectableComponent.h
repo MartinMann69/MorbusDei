@@ -31,6 +31,8 @@ public:
 	float GetRotationSpeed() const { return RotationSpeed; }
 	float GetEnterDuration() const { return EnterDuration; }
 	float GetExitDuration() const { return ExitDuration; }
+	FRotator GetInitialInspectRotation() const { return InitialInspectRotation; }
+	FVector GetInspectOffset() const { return InspectOffset; }
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Inspection")
@@ -65,6 +67,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Transition", meta=(ClampMin="0.0"))
 	float ExitDuration = 0.25f;
+	
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Presentation")
+	FRotator InitialInspectRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Presentation")
+	FVector InspectOffset = FVector::ZeroVector;
 
 	UPROPERTY()
 	FTransform OriginalTransform;
