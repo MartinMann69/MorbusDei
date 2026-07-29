@@ -20,6 +20,7 @@ public:
 	bool CanInspect() const;
 	bool StartInspect(APawn* Interactor, USceneComponent* InspectPivot);
 	void EndInspect();
+	void SetInspectSound(USoundBase* Sound) { InspectSound = Sound; }
 
 	bool IsInspecting() const;
 	bool CanRotateDuringInspect() const { return bCanRotateDuringInspect; }
@@ -83,8 +84,8 @@ protected:
 
 	UPROPERTY()
 	TArray<UPrimitiveComponent*> SimulatingPrimitiveComponents;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Inspection")
+
+	UPROPERTY(Transient)
 	USoundBase* InspectSound = nullptr;
 
 	bool bIsInspecting = false;
