@@ -22,6 +22,7 @@ public:
 	void EndInspect();
 
 	bool IsInspecting() const;
+	bool CanRotateDuringInspect() const { return bCanRotateDuringInspect; }
 
 	float GetInspectDistance() const { return InspectDistance; }
 	float GetDesiredInspectDistance() const;
@@ -41,6 +42,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Distance")
 	bool bUseAutomaticDistance = true;
 
+	UPROPERTY(EditAnywhere, Category="MD|Inspection")
+	bool bCanRotateDuringInspect = true;
+	
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Distance", meta=(EditCondition="!bUseAutomaticDistance"))
 	float InspectDistance = 100.f;
 

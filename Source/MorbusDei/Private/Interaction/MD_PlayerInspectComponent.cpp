@@ -205,7 +205,7 @@ void UMD_PlayerInspectComponent::UpdateExitTransition(float DeltaTime)
 
 void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 {
-	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot)
+	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot || !CurrentInspectable->CanRotateDuringInspect())
 	{
 		return;
 	}
