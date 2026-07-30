@@ -5,6 +5,12 @@
 #include "Kismet/GameplayStatics.h"
 #include "Tools/MD_MenuPreviewRig.h"
 
+UMD_GalleryWidget::UMD_GalleryWidget(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SetIsFocusable(true);
+}
+
 void UMD_GalleryWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -14,12 +20,41 @@ void UMD_GalleryWidget::NativeConstruct()
 
 void UMD_GalleryWidget::NativeDestruct()
 {
+	ClearKeyboardPanInput();
+
 	if (bClearPreviewOnDestruct)
 	{
 		ClearPreview();
 	}
 
 	Super::NativeDestruct();
+}
+
+void UMD_GalleryWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	const FVector2D PanInput = GetKeyboardPanInput();
+	if (PanInput.IsNearlyZero())
+	{
+		return;
+	}
+
+	if (!IsValid(PreviewRigRef))
+	{
+		FindPreviewRig();
+	}
+
+	if (IsValid(PreviewRigRef))
+	{
+		PreviewRigRef->PanPreview(PanInput.X, PanInput.Y, InDeltaTime);
+	}
+}
+
+void UMD_GalleryWidget::NativeOnFocusLost(const FFocusEvent& InFocusEvent)
+{
+	ClearKeyboardPanInput();
+	Super::NativeOnFocusLost(InFocusEvent);
 }
 
 void UMD_GalleryWidget::FindPreviewRig()
@@ -45,6 +80,8 @@ void UMD_GalleryWidget::ShowPreviewItem(TSubclassOf<AActor> PreviewClass)
 	{
 		PreviewRigRef->ShowPreview(PreviewClass);
 	}
+
+	SetKeyboardFocus();
 }
 
 void UMD_GalleryWidget::ClearPreview()
@@ -61,6 +98,7 @@ FReply UMD_GalleryWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, c
 	{
 		bDraggingPreview = true;
 		LastMouseScreenPosition = InMouseEvent.GetScreenSpacePosition();
+		SetKeyboardFocus();
 
 		return FReply::Handled().CaptureMouse(TakeWidget());
 	}
@@ -123,6 +161,24 @@ FReply UMD_GalleryWidget::NativeOnMouseWheel(const FGeometry& InGeometry, const 
 	return Super::NativeOnMouseWheel(InGeometry, InMouseEvent);
 }
 
+FReply UMD_GalleryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FReply Reply = HandleKeyboardPanKeyDown(InKeyEvent);
+	return Reply.IsEventHandled() ? Reply : Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);
+}
+
+FReply UMD_GalleryWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FReply Reply = HandleKeyboardPanKeyDown(InKeyEvent);
+	return Reply.IsEventHandled() ? Reply : Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+FReply UMD_GalleryWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	const FReply Reply = HandleKeyboardPanKeyUp(InKeyEvent);
+	return Reply.IsEventHandled() ? Reply : Super::NativeOnKeyUp(InGeometry, InKeyEvent);
+}
+
 bool UMD_GalleryWidget::IsPointerOverPreviewArea(const FPointerEvent& MouseEvent) const
 {
 	if (!PreviewInputArea)
@@ -138,4 +194,76 @@ bool UMD_GalleryWidget::IsPointerOverPreviewArea(const FPointerEvent& MouseEvent
 		&& LocalPosition.Y >= 0.0f
 		&& LocalPosition.X <= LocalSize.X
 		&& LocalPosition.Y <= LocalSize.Y;
+}
+
+FReply UMD_GalleryWidget::HandleKeyboardPanKeyDown(const FKeyEvent& KeyEvent)
+{
+	const FKey Key = KeyEvent.GetKey();
+
+	if (Key == EKeys::A)
+	{
+		bPanLeftHeld = true;
+	}
+	else if (Key == EKeys::D)
+	{
+		bPanRightHeld = true;
+	}
+	else if (Key == EKeys::W)
+	{
+		bPanUpHeld = true;
+	}
+	else if (Key == EKeys::S)
+	{
+		bPanDownHeld = true;
+	}
+	else
+	{
+		return FReply::Unhandled();
+	}
+
+	return FReply::Handled();
+}
+
+FReply UMD_GalleryWidget::HandleKeyboardPanKeyUp(const FKeyEvent& KeyEvent)
+{
+	const FKey Key = KeyEvent.GetKey();
+
+	if (Key == EKeys::A)
+	{
+		bPanLeftHeld = false;
+	}
+	else if (Key == EKeys::D)
+	{
+		bPanRightHeld = false;
+	}
+	else if (Key == EKeys::W)
+	{
+		bPanUpHeld = false;
+	}
+	else if (Key == EKeys::S)
+	{
+		bPanDownHeld = false;
+	}
+	else
+	{
+		return FReply::Unhandled();
+	}
+
+	return FReply::Handled();
+}
+
+void UMD_GalleryWidget::ClearKeyboardPanInput()
+{
+	bPanUpHeld = false;
+	bPanDownHeld = false;
+	bPanLeftHeld = false;
+	bPanRightHeld = false;
+}
+
+FVector2D UMD_GalleryWidget::GetKeyboardPanInput() const
+{
+	const float HorizontalDirection = (bPanRightHeld ? 1.0f : 0.0f) - (bPanLeftHeld ? 1.0f : 0.0f);
+	const float VerticalDirection = (bPanUpHeld ? 1.0f : 0.0f) - (bPanDownHeld ? 1.0f : 0.0f);
+
+	return FVector2D(HorizontalDirection, VerticalDirection).GetSafeNormal();
 }
