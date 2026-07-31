@@ -41,6 +41,11 @@ AMD_Interactable::AMD_Interactable()
 void AMD_Interactable::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (InspectableComponent)
+	{
+		InspectableComponent->SetInspectSound(InspectSound);
+	}
 }
 
 void AMD_Interactable::Interact_Implementation(APawn* Interactor)

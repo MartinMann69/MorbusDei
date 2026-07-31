@@ -8,7 +8,8 @@
 
 AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	bFindCameraComponentWhenViewTarget = true;
 
 	USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
@@ -68,6 +69,59 @@ AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 	RectLight3->SetSourceHeight(550.0f);
 }
 
+void AMD_MenuPreviewRig::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (SpringArm)
+	{
+		DefaultSpringArmRelativeLocation = SpringArm->GetRelativeLocation();
+	}
+
+	SetZoomDistanceImmediate(DefaultZoomDistance);
+	SetActorTickEnabled(false);
+}
+
+void AMD_MenuPreviewRig::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (!SpringArm)
+	{
+		return;
+	}
+
+	bool bNeedsTick = false;
+
+	if (FMath::IsNearlyEqual(CurrentZoomDistance, TargetZoomDistance, 0.1f))
+	{
+		SetZoomDistanceImmediate(TargetZoomDistance);
+	}
+	else
+	{
+		CurrentZoomDistance = FMath::FInterpTo(CurrentZoomDistance, TargetZoomDistance, DeltaSeconds, ZoomInterpSpeed);
+		SpringArm->TargetArmLength = CurrentZoomDistance;
+		bNeedsTick = true;
+	}
+
+	if (CameraPanOffset.Equals(TargetCameraPanOffset, 0.1f))
+	{
+		CameraPanOffset = TargetCameraPanOffset;
+		ApplyCameraPanOffset();
+	}
+	else
+	{
+		CameraPanOffset = FMath::VInterpTo(CameraPanOffset, TargetCameraPanOffset, DeltaSeconds, CameraPanInterpSpeed);
+		ApplyCameraPanOffset();
+		bNeedsTick = true;
+	}
+
+	if (!bNeedsTick)
+	{
+		SetActorTickEnabled(false);
+	}
+}
+
 void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 {
 	if (!PreviewClass || !GetWorld())
@@ -80,22 +134,15 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	PreviewYaw = 0.0f;
 	PreviewPitch = 0.0f;
 	PreviewPivot->SetRelativeRotation(FRotator::ZeroRotator);
+	ResetCameraPan();
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	const FTransform SpawnTransform(
-	PreviewSpawnRotation,
-	SpawnPoint->GetComponentLocation(),
-	SpawnPoint->GetComponentScale()
-	);
+	const FTransform SpawnTransform(PreviewSpawnRotation, SpawnPoint->GetComponentLocation(), SpawnPoint->GetComponentScale());
 
-	CurrentPreviewActor = GetWorld()->SpawnActor<AActor>(
-		PreviewClass,
-		SpawnTransform,
-		SpawnParams
-	);
+	CurrentPreviewActor = GetWorld()->SpawnActor<AActor>(PreviewClass, SpawnTransform, SpawnParams);
 
 	if (!CurrentPreviewActor)
 	{
@@ -103,6 +150,8 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	}
 
 	CurrentPreviewActor->SetActorEnableCollision(false);
+
+	float DesiredZoomDistance = GetClampedZoomDistance(DefaultZoomDistance);
 
 	FVector MeshCenter;
 	FVector MeshExtent;
@@ -115,7 +164,12 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 			nullptr,
 			ETeleportType::TeleportPhysics
 		);
+
+		DesiredZoomDistance = GetAutomaticZoomDistance(MeshExtent);
 	}
+
+	SetZoomDistanceImmediate(DesiredZoomDistance);
+	SetActorTickEnabled(true);
 
 	CurrentPreviewActor->AttachToComponent(
 		PreviewPivot,
@@ -131,6 +185,8 @@ void AMD_MenuPreviewRig::ClearPreview()
 	}
 
 	CurrentPreviewActor = nullptr;
+	ResetCameraPan();
+	SetActorTickEnabled(false);
 }
 
 void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
@@ -143,11 +199,51 @@ void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
 
 void AMD_MenuPreviewRig::ZoomPreview(float WheelDelta)
 {
-	SpringArm->TargetArmLength = FMath::Clamp(
-		SpringArm->TargetArmLength - WheelDelta * ZoomSpeed,
-		MinZoom,
-		MaxZoom
-	);
+	if (!IsValid(CurrentPreviewActor) || !SpringArm)
+	{
+		return;
+	}
+
+	TargetZoomDistance = GetClampedZoomDistance(TargetZoomDistance - WheelDelta * ZoomSpeed);
+	SetActorTickEnabled(true);
+}
+
+void AMD_MenuPreviewRig::PanPreview(float HorizontalDirection, float VerticalDirection, float DeltaSeconds)
+{
+	if (!IsValid(CurrentPreviewActor) || !SpringArm)
+	{
+		return;
+	}
+
+	const FVector2D PanInput(HorizontalDirection, VerticalDirection);
+	if (PanInput.IsNearlyZero())
+	{
+		return;
+	}
+
+	const FVector PanWorldDirection = PreviewCamera
+		? PreviewCamera->GetRightVector() * PanInput.X + PreviewCamera->GetUpVector() * PanInput.Y
+		: GetActorRightVector() * PanInput.X + GetActorUpVector() * PanInput.Y;
+
+	if (PanWorldDirection.IsNearlyZero())
+	{
+		return;
+	}
+
+	const USceneComponent* AttachParent = SpringArm->GetAttachParent();
+	const FVector LocalPanDelta = AttachParent
+		? AttachParent->GetComponentTransform().InverseTransformVectorNoScale(PanWorldDirection.GetSafeNormal() * CameraPanSpeed * DeltaSeconds)
+		: PanWorldDirection.GetSafeNormal() * CameraPanSpeed * DeltaSeconds;
+
+	TargetCameraPanOffset = (TargetCameraPanOffset + LocalPanDelta).GetClampedToMaxSize(MaxCameraPanOffset);
+	SetActorTickEnabled(true);
+}
+
+void AMD_MenuPreviewRig::ResetCameraPan()
+{
+	CameraPanOffset = FVector::ZeroVector;
+	TargetCameraPanOffset = FVector::ZeroVector;
+	ApplyCameraPanOffset();
 }
 
 bool AMD_MenuPreviewRig::GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
@@ -180,4 +276,39 @@ bool AMD_MenuPreviewRig::GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, 
 	OutCenter = CombinedBox.GetCenter();
 	OutExtent = CombinedBox.GetExtent();
 	return true;
+}
+
+float AMD_MenuPreviewRig::GetClampedZoomDistance(float Distance) const
+{
+	const float MinDistance = FMath::Min(MinZoom, MaxZoom);
+	const float MaxDistance = FMath::Max(MinZoom, MaxZoom);
+
+	return FMath::Clamp(Distance, MinDistance, MaxDistance);
+}
+
+float AMD_MenuPreviewRig::GetAutomaticZoomDistance(const FVector& BoundsExtent) const
+{
+	const float BoundsRadius = BoundsExtent.Size();
+	const float AutomaticDistance = BoundsRadius * AutomaticDistanceMultiplier + AutomaticDistancePadding;
+
+	return GetClampedZoomDistance(AutomaticDistance);
+}
+
+void AMD_MenuPreviewRig::SetZoomDistanceImmediate(float Distance)
+{
+	CurrentZoomDistance = GetClampedZoomDistance(Distance);
+	TargetZoomDistance = CurrentZoomDistance;
+
+	if (SpringArm)
+	{
+		SpringArm->TargetArmLength = CurrentZoomDistance;
+	}
+}
+
+void AMD_MenuPreviewRig::ApplyCameraPanOffset()
+{
+	if (SpringArm)
+	{
+		SpringArm->SetRelativeLocation(DefaultSpringArmRelativeLocation + CameraPanOffset);
+	}
 }

@@ -17,6 +17,9 @@ class MORBUSDEI_API AMD_MenuPreviewRig : public AActor
 public:
 	AMD_MenuPreviewRig();
 
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
+
 	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
 	void ShowPreview(TSubclassOf<AActor> PreviewClass);
 
@@ -28,6 +31,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
 	void ZoomPreview(float WheelDelta);
+
+	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
+	void PanPreview(float HorizontalDirection, float VerticalDirection, float DeltaSeconds);
+
+	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
+	void ResetCameraPan();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Menu Preview")
 	TObjectPtr<USceneComponent> PreviewPivot;
@@ -51,10 +60,31 @@ public:
 	float ZoomSpeed = 40.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
+	float CameraPanSpeed = 220.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview", meta=(ClampMin="0.0"))
+	float MaxCameraPanOffset = 250.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview", meta=(ClampMin="0.1"))
+	float CameraPanInterpSpeed = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.1"))
+	float ZoomInterpSpeed = 12.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
 	float MinZoom = 150.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview")
 	float MaxZoom = 800.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom")
+	float DefaultZoomDistance = 700.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.1"))
+	float AutomaticDistanceMultiplier = 2.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.0"))
+	float AutomaticDistancePadding = 35.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Menu Preview|Lighting")
 	TObjectPtr<URectLightComponent> RectLight;
@@ -77,6 +107,15 @@ private:
 
 	float PreviewYaw = 0.0f;
 	float PreviewPitch = 0.0f;
+	float CurrentZoomDistance = 700.0f;
+	float TargetZoomDistance = 700.0f;
+	FVector DefaultSpringArmRelativeLocation = FVector::ZeroVector;
+	FVector CameraPanOffset = FVector::ZeroVector;
+	FVector TargetCameraPanOffset = FVector::ZeroVector;
 
 	bool GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const;
+	float GetClampedZoomDistance(float Distance) const;
+	float GetAutomaticZoomDistance(const FVector& BoundsExtent) const;
+	void SetZoomDistanceImmediate(float Distance);
+	void ApplyCameraPanOffset();
 };

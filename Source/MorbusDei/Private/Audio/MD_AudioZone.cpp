@@ -6,10 +6,12 @@
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
-#include "DynamicMesh/DynamicMesh3.h"
 #include "GameFramework/Pawn.h"
+#include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
 
 TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveVoiceLineZone = nullptr;
+TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveBackgroundMusicZone = nullptr;
 
 AMD_AudioZone::AMD_AudioZone()
 {
@@ -63,6 +65,7 @@ void AMD_AudioZone::BeginPlay()
 void AMD_AudioZone::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearActiveVoiceLineIfNeeded();
+	ClearActiveBackgroundMusicIfNeeded();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -83,6 +86,7 @@ void AMD_AudioZone::PlayZoneSound()
 	
 	ConfigureAudioComponent();
 	StopCompetingVoiceLine();
+	StopCompetingBackgroundMusic();
 
 	if (!LoopParameterName.IsNone())
 	{
@@ -97,6 +101,8 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		AudioComponent->Play();
 	}
+
+	SpawnTriggeredNiagaraEffect();
 	
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
@@ -170,6 +176,7 @@ void AMD_AudioZone::HandleAudioFinished()
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
 	ClearActiveVoiceLineIfNeeded();
+	ClearActiveBackgroundMusicIfNeeded();
 
 	if (bShouldDestroy)
 	{
@@ -221,7 +228,7 @@ bool AMD_AudioZone::IsZoneSoundPlaying() const
 
 void AMD_AudioZone::StopCompetingVoiceLine()
 {
-	if (!bStopOtherVoiceLinesOnPlay)
+	if (!bStopOtherVoiceLinesOnPlay || bStopOtherBackgroundMusicOnPlay)
 	{
 		return;
 	}
@@ -232,6 +239,21 @@ void AMD_AudioZone::StopCompetingVoiceLine()
 	}
 
 	ActiveVoiceLineZone = this;
+}
+
+void AMD_AudioZone::StopCompetingBackgroundMusic()
+{
+	if (!bStopOtherBackgroundMusicOnPlay)
+	{
+		return;
+	}
+
+	if (ActiveBackgroundMusicZone.IsValid() && ActiveBackgroundMusicZone.Get() != this)
+	{
+		ActiveBackgroundMusicZone->StopZoneSound();
+	}
+
+	ActiveBackgroundMusicZone = this;
 }
 
 void AMD_AudioZone::StopVoiceLineImmediately()
@@ -247,6 +269,7 @@ void AMD_AudioZone::StopVoiceLineImmediately()
 	}
 
 	ClearActiveVoiceLineIfNeeded();
+	ClearActiveBackgroundMusicIfNeeded();
 }
 
 void AMD_AudioZone::ClearActiveVoiceLineIfNeeded()
@@ -255,4 +278,57 @@ void AMD_AudioZone::ClearActiveVoiceLineIfNeeded()
 	{
 		ActiveVoiceLineZone.Reset();
 	}
+}
+
+void AMD_AudioZone::ClearActiveBackgroundMusicIfNeeded()
+{
+	if (ActiveBackgroundMusicZone.Get() == this)
+	{
+		ActiveBackgroundMusicZone.Reset();
+	}
+}
+
+void AMD_AudioZone::SpawnTriggeredNiagaraEffect() const
+{
+	if (!TriggerNiagaraEffect)
+	{
+		return;
+	}
+
+	FTransform SpawnTransform = FTransform::Identity;
+
+	switch (NiagaraSpawnTarget)
+	{
+	case EMD_AudioZoneNiagaraSpawnTarget::Player:
+	{
+		const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+		if (!PlayerPawn)
+		{
+			return;
+		}
+
+		SpawnTransform = PlayerNiagaraSpawnOffset * PlayerPawn->GetActorTransform();
+		break;
+	}
+
+	case EMD_AudioZoneNiagaraSpawnTarget::Actor:
+	default:
+	{
+		if (!IsValid(NiagaraSpawnActor))
+		{
+			return;
+		}
+
+		SpawnTransform = NiagaraSpawnActor->GetActorTransform();
+		break;
+	}
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		this,
+		TriggerNiagaraEffect,
+		SpawnTransform.GetLocation(),
+		SpawnTransform.Rotator(),
+		SpawnTransform.GetScale3D()
+	);
 }

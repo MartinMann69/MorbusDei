@@ -14,6 +14,14 @@ class USceneComponent;
 class USoundAttenuation;
 class USoundBase;
 class UPrimitiveComponent;
+class UNiagaraSystem;
+
+UENUM(BlueprintType)
+enum class EMD_AudioZoneNiagaraSpawnTarget : uint8
+{
+	Actor UMETA(DisplayName="Actor"),
+	Player UMETA(DisplayName="Player")
+};
 
 UCLASS()
 class MORBUSDEI_API AMD_AudioZone : public AActor
@@ -94,6 +102,21 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Voice")
 	bool bStopOtherVoiceLinesOnPlay = true;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Music")
+	bool bStopOtherBackgroundMusicOnPlay = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Niagara")
+	UNiagaraSystem* TriggerNiagaraEffect = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Niagara", meta=(EditCondition="TriggerNiagaraEffect != nullptr"))
+	EMD_AudioZoneNiagaraSpawnTarget NiagaraSpawnTarget = EMD_AudioZoneNiagaraSpawnTarget::Actor;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="MD|Audio|Niagara", meta=(EditCondition="TriggerNiagaraEffect != nullptr && NiagaraSpawnTarget == EMD_AudioZoneNiagaraSpawnTarget::Actor", EditConditionHides))
+	AActor* NiagaraSpawnActor = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Niagara", meta=(EditCondition="TriggerNiagaraEffect != nullptr && NiagaraSpawnTarget == EMD_AudioZoneNiagaraSpawnTarget::Player", EditConditionHides))
+	FTransform PlayerNiagaraSpawnOffset = FTransform::Identity;
+
 private:
 	UFUNCTION()
 	void HandleBeginOverlap(
@@ -117,8 +140,11 @@ private:
 	void ConfigureAudioComponent();
 	void UpdateTriggerState();
 	void StopCompetingVoiceLine();
+	void StopCompetingBackgroundMusic();
 	void StopVoiceLineImmediately();
 	void ClearActiveVoiceLineIfNeeded();
+	void ClearActiveBackgroundMusicIfNeeded();
+	void SpawnTriggeredNiagaraEffect() const;
 	
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool UsesTrigger() const;
@@ -129,5 +155,6 @@ private:
 	FTimerHandle PlaybackLimitTimer;
 
 	static TWeakObjectPtr<AMD_AudioZone> ActiveVoiceLineZone;
+	static TWeakObjectPtr<AMD_AudioZone> ActiveBackgroundMusicZone;
 
 };
