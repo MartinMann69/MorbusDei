@@ -4,6 +4,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/Actor.h"
+#include "Kismet/GameplayStatics.h"
 
 UMD_InspectableComponent::UMD_InspectableComponent()
 {
@@ -15,13 +16,18 @@ bool UMD_InspectableComponent::CanInspect() const
 	return bCanInspect && !bIsInspecting;
 }
 
-bool UMD_InspectableComponent::StartInspect(APawn* Interactor, USceneComponent* InspectPivot)
+bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* InspectPivot)
 {
 	AActor* Owner = GetOwner();
 
 	if (!CanInspect() || !Owner || !Interactor || !InspectPivot)
 	{
 		return false;
+	}
+	
+	if (InspectSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, InspectSound, Owner->GetActorLocation());
 	}
 
 	bIsInspecting = true;
@@ -31,20 +37,11 @@ bool UMD_InspectableComponent::StartInspect(APawn* Interactor, USceneComponent* 
 	DisableOwnerPhysics();
 	Owner->SetActorEnableCollision(false);
 
-	Owner->SetActorRotation(
-		InspectPivot->GetComponentRotation(),
-		ETeleportType::TeleportPhysics
-	);
+	const FVector OriginalBoundsCenter = GetInspectableBoundsCenter();
 
-	const FVector BoundsCenter = GetInspectableBoundsCenter();
-	const FVector CenterOffset = BoundsCenter - Owner->GetActorLocation();
-	const FVector NewActorLocation = InspectPivot->GetComponentLocation() - CenterOffset;
-
-	Owner->SetActorLocation(
-		NewActorLocation,
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
+	InspectPivot->SetWorldLocationAndRotation(
+		OriginalBoundsCenter,
+		Owner->GetActorRotation()
 	);
 
 	Owner->AttachToComponent(
@@ -113,6 +110,35 @@ FVector UMD_InspectableComponent::GetInspectableBoundsCenter() const
 	return Owner->GetActorLocation();
 }
 
+float UMD_InspectableComponent::GetInspectableBoundsRadius() const
+{
+	const AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return 0.f;
+	}
+
+	FBox Bounds(EForceInit::ForceInit);
+
+	TArray<UStaticMeshComponent*> MeshComponents;
+	Owner->GetComponents<UStaticMeshComponent>(MeshComponents);
+
+	for (UStaticMeshComponent* MeshComp : MeshComponents)
+	{
+		if (MeshComp && MeshComp->GetStaticMesh())
+		{
+			Bounds += MeshComp->Bounds.GetBox();
+		}
+	}
+
+	if (Bounds.IsValid)
+	{
+		return Bounds.GetExtent().Size();
+	}
+
+	return 0.f;
+}
+
 void UMD_InspectableComponent::DisableOwnerPhysics()
 {
 	SimulatingPrimitiveComponents.Reset();
@@ -147,4 +173,21 @@ void UMD_InspectableComponent::RestoreOwnerPhysics()
 	}
 
 	SimulatingPrimitiveComponents.Reset();
+}
+
+float UMD_InspectableComponent::GetDesiredInspectDistance() const
+{
+	const float MinDistance = FMath::Min(MinInspectDistance, MaxInspectDistance);
+	const float MaxDistance = FMath::Max(MinInspectDistance, MaxInspectDistance);
+
+	if (!bUseAutomaticDistance)
+	{
+		return FMath::Clamp(InspectDistance, MinDistance, MaxDistance);
+	}
+
+	const float BoundsRadius = GetInspectableBoundsRadius();
+
+	const float AutomaticDistance = BoundsRadius * AutomaticDistanceMultiplier + AutomaticDistancePadding;
+
+	return FMath::Clamp(AutomaticDistance, MinDistance, MaxDistance);
 }

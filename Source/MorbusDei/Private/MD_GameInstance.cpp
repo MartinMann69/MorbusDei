@@ -47,6 +47,14 @@ void UMD_GameInstance::SetSFXVolume(float Value)
 	ApplyAudioSettings();
 }
 
+void UMD_GameInstance::SetVoiceVolume(float Value)
+{
+	UMD_AudioSettingsSave* Settings = GetOrCreateAudioSettings();
+	Settings->VoiceVolume = FMath::Clamp(Value, 0.0f, 1.0f);
+
+	ApplyAudioSettings();
+}
+
 void UMD_GameInstance::ApplyAudioSettings()
 {
 	UMD_AudioSettingsSave* Settings = GetOrCreateAudioSettings();
@@ -59,6 +67,7 @@ void UMD_GameInstance::ApplyAudioSettings()
 	const float Master = FMath::Clamp(Settings->MasterVolume, 0.0f, 1.0f);
 	const float Music = FMath::Clamp(Settings->MusicVolume, 0.0f, 1.0f);
 	const float SFX = FMath::Clamp(Settings->SFXVolume, 0.0f, 1.0f);
+	const float Voice = FMath::Clamp(Settings->VoiceVolume, 0.0f, 1.0f);
 
 	for (USoundClass* SoundClass : MasterOnlySoundClasses)
 	{
@@ -67,6 +76,7 @@ void UMD_GameInstance::ApplyAudioSettings()
 
 	ApplyClassVolume(MusicSoundClass, Master * Music);
 	ApplyClassVolume(SFXSoundClass, Master * SFX);
+	ApplyClassVolume(VoiceSoundClass, Master * Voice);
 }
 
 bool UMD_GameInstance::SaveAudioSettings()
@@ -89,6 +99,11 @@ float UMD_GameInstance::GetMusicVolume() const
 float UMD_GameInstance::GetSFXVolume() const
 {
 	return AudioSettings ? AudioSettings->SFXVolume : 1.0f;
+}
+
+float UMD_GameInstance::GetVoiceVolume() const
+{
+	return AudioSettings ? AudioSettings->VoiceVolume : 1.0f;
 }
 
 void UMD_GameInstance::LoadAudioSettings()
