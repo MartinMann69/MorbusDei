@@ -63,6 +63,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction")
 	USoundBase* InteractionSound = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Inspection")
+	USoundBase* InspectSound = nullptr;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction", meta=(ClampMin="0.0"))
 	float VoiceoverDelayAfterInteractionSound = 0.0f;
 

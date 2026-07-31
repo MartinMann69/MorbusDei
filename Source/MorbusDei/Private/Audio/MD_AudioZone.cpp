@@ -6,8 +6,9 @@
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
-#include "DynamicMesh/DynamicMesh3.h"
 #include "GameFramework/Pawn.h"
+#include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
 
 TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveVoiceLineZone = nullptr;
 TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveBackgroundMusicZone = nullptr;
@@ -100,6 +101,8 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		AudioComponent->Play();
 	}
+
+	SpawnTriggeredNiagaraEffect();
 	
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
@@ -283,4 +286,49 @@ void AMD_AudioZone::ClearActiveBackgroundMusicIfNeeded()
 	{
 		ActiveBackgroundMusicZone.Reset();
 	}
+}
+
+void AMD_AudioZone::SpawnTriggeredNiagaraEffect() const
+{
+	if (!TriggerNiagaraEffect)
+	{
+		return;
+	}
+
+	FTransform SpawnTransform = FTransform::Identity;
+
+	switch (NiagaraSpawnTarget)
+	{
+	case EMD_AudioZoneNiagaraSpawnTarget::Player:
+	{
+		const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+		if (!PlayerPawn)
+		{
+			return;
+		}
+
+		SpawnTransform = PlayerNiagaraSpawnOffset * PlayerPawn->GetActorTransform();
+		break;
+	}
+
+	case EMD_AudioZoneNiagaraSpawnTarget::Actor:
+	default:
+	{
+		if (!IsValid(NiagaraSpawnActor))
+		{
+			return;
+		}
+
+		SpawnTransform = NiagaraSpawnActor->GetActorTransform();
+		break;
+	}
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		this,
+		TriggerNiagaraEffect,
+		SpawnTransform.GetLocation(),
+		SpawnTransform.Rotator(),
+		SpawnTransform.GetScale3D()
+	);
 }
