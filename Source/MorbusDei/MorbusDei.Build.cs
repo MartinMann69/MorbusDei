@@ -18,7 +18,8 @@ public class MorbusDei : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"MediaAssets"
+			"MediaAssets",
+			"Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

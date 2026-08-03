@@ -20,8 +20,10 @@ public:
 	bool CanInspect() const;
 	bool StartInspect(APawn* Interactor, USceneComponent* InspectPivot);
 	void EndInspect();
+	void SetInspectSound(USoundBase* Sound) { InspectSound = Sound; }
 
 	bool IsInspecting() const;
+	bool CanRotateDuringInspect() const { return bCanRotateDuringInspect; }
 
 	float GetInspectDistance() const { return InspectDistance; }
 	float GetDesiredInspectDistance() const;
@@ -31,6 +33,8 @@ public:
 	float GetRotationSpeed() const { return RotationSpeed; }
 	float GetEnterDuration() const { return EnterDuration; }
 	float GetExitDuration() const { return ExitDuration; }
+	FRotator GetInitialInspectRotation() const { return InitialInspectRotation; }
+	FVector GetInspectOffset() const { return InspectOffset; }
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Inspection")
@@ -39,6 +43,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Distance")
 	bool bUseAutomaticDistance = true;
 
+	UPROPERTY(EditAnywhere, Category="MD|Inspection")
+	bool bCanRotateDuringInspect = true;
+	
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Distance", meta=(EditCondition="!bUseAutomaticDistance"))
 	float InspectDistance = 100.f;
 
@@ -65,14 +72,20 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category="MD|Inspection|Transition", meta=(ClampMin="0.0"))
 	float ExitDuration = 0.25f;
+	
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Presentation")
+	FRotator InitialInspectRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, Category="MD|Inspection|Presentation")
+	FVector InspectOffset = FVector::ZeroVector;
 
 	UPROPERTY()
 	FTransform OriginalTransform;
 
 	UPROPERTY()
 	TArray<UPrimitiveComponent*> SimulatingPrimitiveComponents;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Inspection")
+
+	UPROPERTY(Transient)
 	USoundBase* InspectSound = nullptr;
 
 	bool bIsInspecting = false;

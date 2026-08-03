@@ -95,11 +95,12 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 	TargetInspectDistance = CurrentInspectDistance;
 	
 	RotationVelocity = FVector2D::ZeroVector;
+	CurrentInspectYaw = 0.f;
 	CurrentInspectPitch = 0.f;
 	
-	const FTransform DesiredPivotTransform = MakeDesiredPivotTransform();
-
 	CurrentInspectable = Inspectable;
+
+	const FTransform DesiredPivotTransform = MakeDesiredPivotTransform(CurrentInspectable);
 
 	if (!CurrentInspectable->StartInspect(OwningPawn, InspectPivot))
 	{
@@ -147,7 +148,7 @@ void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 	}
 	
 	UpdateInspectViewFromCamera();
-	TransitionTargetTransform = MakeDesiredPivotTransform();
+	TransitionTargetTransform = MakeDesiredPivotTransform(CurrentInspectable);
 
 	TransitionElapsed += DeltaTime;
 
@@ -204,7 +205,7 @@ void UMD_PlayerInspectComponent::UpdateExitTransition(float DeltaTime)
 
 void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 {
-	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot)
+	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot || !CurrentInspectable->CanRotateDuringInspect())
 	{
 		return;
 	}
@@ -224,7 +225,8 @@ void UMD_PlayerInspectComponent::UpdateSmoothRotation(float DeltaTime)
 		return;
 	}
 
-	const float YawAmount = RotationVelocity.X;
+	CurrentInspectYaw += RotationVelocity.X;
+
 	float PitchAmount = RotationVelocity.Y;
 
 	if (bLimitInspectPitch)
@@ -244,8 +246,7 @@ void UMD_PlayerInspectComponent::UpdateSmoothRotation(float DeltaTime)
 		CurrentInspectPitch += PitchAmount;
 	}
 
-	InspectPivot->AddWorldRotation(FRotator(0.f, YawAmount, 0.f));
-	InspectPivot->AddLocalRotation(FRotator(PitchAmount, 0.f, 0.f));
+	InspectPivot->SetWorldTransform(MakeDesiredPivotTransform(CurrentInspectable));
 
 	RotationVelocity.X = FMath::FInterpTo(RotationVelocity.X, 0.f, DeltaTime, RotationDamping);
 
@@ -324,11 +325,33 @@ bool UMD_PlayerInspectComponent::UpdateInspectViewFromCamera()
 	return true;
 }
 
-FTransform UMD_PlayerInspectComponent::MakeDesiredPivotTransform() const
+FTransform UMD_PlayerInspectComponent::MakeDesiredPivotTransform(const UMD_InspectableComponent* Inspectable) const
 {
-	const FVector PivotLocation = InspectViewLocation + InspectViewRotation.Vector() * CurrentInspectDistance;
+	const FRotationMatrix ViewMatrix(InspectViewRotation);
 
-	return FTransform(InspectViewRotation, PivotLocation, FVector::OneVector);
+	const FVector Forward = ViewMatrix.GetUnitAxis(EAxis::X);
+	const FVector Right = ViewMatrix.GetUnitAxis(EAxis::Y);
+	const FVector Up = ViewMatrix.GetUnitAxis(EAxis::Z);
+
+	FVector LocalOffset = FVector::ZeroVector;
+	FQuat PresentationRotation = FQuat::Identity;
+
+	if (Inspectable)
+	{
+		const FVector InspectOffset = Inspectable->GetInspectOffset();
+
+		LocalOffset = Forward * InspectOffset.X + Right * InspectOffset.Y + Up * InspectOffset.Z;
+
+		PresentationRotation = Inspectable->GetInitialInspectRotation().Quaternion();
+	}
+
+	const FQuat UserRotation = FRotator(CurrentInspectPitch, CurrentInspectYaw, 0.f).Quaternion();
+
+	const FQuat DesiredRotation = InspectViewRotation.Quaternion() * UserRotation * PresentationRotation;
+
+	const FVector PivotLocation = InspectViewLocation + Forward * CurrentInspectDistance + LocalOffset;
+
+	return FTransform(DesiredRotation, PivotLocation, FVector::OneVector);
 }
 
 void UMD_PlayerInspectComponent::StopOwnerMovementForInspect()
