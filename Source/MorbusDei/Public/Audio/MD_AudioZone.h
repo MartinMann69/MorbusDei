@@ -43,6 +43,8 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="MD|Audio")
 	bool IsZoneSoundPlaying() const;
+	
+	static bool TrySkipActiveVoiceLine();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Audio|Components")
@@ -95,6 +97,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float FadeOutDuration = 0.5f;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
+	float SkipFadeOutDuration = 0.8f;
+	
 	// Zero means no playback limit.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float MaxPlaybackDuration = 0.0f;
@@ -145,12 +150,14 @@ private:
 	void ClearActiveVoiceLineIfNeeded();
 	void ClearActiveBackgroundMusicIfNeeded();
 	void SpawnTriggeredNiagaraEffect() const;
+	void SkipZoneSound();
 	
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool UsesTrigger() const;
 
 	bool bStopRequested = false;
 	bool bPlaybackLimitReached = false;
+	bool bSkipRequested = false;
 	
 	FTimerHandle PlaybackLimitTimer;
 

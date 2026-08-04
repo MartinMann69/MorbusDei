@@ -83,6 +83,7 @@ void AMD_AudioZone::PlayZoneSound()
 	
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
+	bSkipRequested = false;
 	
 	ConfigureAudioComponent();
 	StopCompetingVoiceLine();
@@ -165,16 +166,53 @@ void AMD_AudioZone::HandleEndOverlap(
 	}
 }
 
+void AMD_AudioZone::SkipZoneSound()
+{
+	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
+
+	if (!AudioComponent || !AudioComponent->IsPlaying())
+	{
+		return;
+	}
+
+	bStopRequested = true;
+	bSkipRequested = true;
+
+	if (SkipFadeOutDuration > 0.0f)
+	{
+		AudioComponent->FadeOut(SkipFadeOutDuration, 0.0f);
+	}
+	else
+	{
+		AudioComponent->Stop();
+	}
+}
+
+bool AMD_AudioZone::TrySkipActiveVoiceLine()
+{
+	AMD_AudioZone* ActiveZone = ActiveVoiceLineZone.Get();
+	
+	if (!ActiveZone || !ActiveZone->IsZoneSoundPlaying())
+	{
+		return false;
+	}
+
+	ActiveZone->SkipZoneSound();
+	return true;
+}
+
 void AMD_AudioZone::HandleAudioFinished()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Destroying audio component"));
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
 	const bool bFinishedNaturally = !bStopRequested;
-	const bool bShouldDestroy = bDestroyAfterPlayback && !bLoop && (bFinishedNaturally || bPlaybackLimitReached);
+	const bool bShouldDestroy = bDestroyAfterPlayback && !bLoop && (bFinishedNaturally || bPlaybackLimitReached || bSkipRequested);
 
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
+	bSkipRequested = false;
+	
 	ClearActiveVoiceLineIfNeeded();
 	ClearActiveBackgroundMusicIfNeeded();
 
@@ -235,7 +273,7 @@ void AMD_AudioZone::StopCompetingVoiceLine()
 
 	if (ActiveVoiceLineZone.IsValid() && ActiveVoiceLineZone.Get() != this)
 	{
-		ActiveVoiceLineZone->StopVoiceLineImmediately();
+		ActiveVoiceLineZone->SkipZoneSound();
 	}
 
 	ActiveVoiceLineZone = this;
@@ -254,22 +292,6 @@ void AMD_AudioZone::StopCompetingBackgroundMusic()
 	}
 
 	ActiveBackgroundMusicZone = this;
-}
-
-void AMD_AudioZone::StopVoiceLineImmediately()
-{
-	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
-
-	bStopRequested = true;
-	bPlaybackLimitReached = false;
-
-	if (AudioComponent && AudioComponent->IsPlaying())
-	{
-		AudioComponent->Stop();
-	}
-
-	ClearActiveVoiceLineIfNeeded();
-	ClearActiveBackgroundMusicIfNeeded();
 }
 
 void AMD_AudioZone::ClearActiveVoiceLineIfNeeded()
