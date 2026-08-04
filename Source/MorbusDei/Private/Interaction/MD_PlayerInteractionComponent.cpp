@@ -6,6 +6,7 @@
 #include "Interaction/MD_InteractInterface.h"
 #include "Interaction/MD_InspectableComponent.h"
 #include "Interaction/MD_PlayerInspectComponent.h"
+#include "Audio/MD_AudioZone.h"
 
 UMD_PlayerInteractionComponent::UMD_PlayerInteractionComponent()
 {
@@ -38,6 +39,11 @@ void UMD_PlayerInteractionComponent::TickComponent(
 void UMD_PlayerInteractionComponent::Interact()
 {
 	if (InspectComp && InspectComp->IsInspecting())
+	{
+		return;
+	}
+	
+	if (AMD_AudioZone::TrySkipActiveVoiceLine())
 	{
 		return;
 	}

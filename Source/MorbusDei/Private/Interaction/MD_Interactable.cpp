@@ -129,8 +129,7 @@ void AMD_Interactable::PlayAssignedAudioZone(APawn* Interactor)
 		return;
 	}
 
-	const bool bShouldSpawnAudioZone =
-		!IsValid(SpawnedAudioZone) && (!bSpawnAudioZoneOnlyOnce || SpawnedAudioZone == nullptr);
+	const bool bShouldSpawnAudioZone = !IsValid(SpawnedAudioZone) && (!bSpawnAudioZoneOnlyOnce || SpawnedAudioZone == nullptr);
 
 	if (bShouldSpawnAudioZone)
 	{
@@ -140,11 +139,24 @@ void AMD_Interactable::PlayAssignedAudioZone(APawn* Interactor)
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		SpawnedAudioZone = GetWorld()->SpawnActor<AMD_AudioZone>(AudioZoneClass, GetActorTransform(), SpawnParams);
+		
+		if (IsValid(SpawnedAudioZone))
+		{
+			SpawnedAudioZone->OnDestroyed.AddDynamic(this, &AMD_Interactable::HandleSpawnedAudioZoneDestroyed);
+		}
 	}
 
 	if (IsValid(SpawnedAudioZone))
 	{
 		SpawnedAudioZone->PlayZoneSound();
+	}
+}
+
+void AMD_Interactable::HandleSpawnedAudioZoneDestroyed(AActor* DestroyedActor)
+{
+	if (DestroyedActor == SpawnedAudioZone)
+	{
+		OnSpawnedAudioZoneFinished();
 	}
 }
 
