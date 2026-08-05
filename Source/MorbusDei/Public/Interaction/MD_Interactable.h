@@ -68,6 +68,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction", meta=(ClampMin="0.0"))
 	float VoiceoverDelayAfterInteractionSound = 0.0f;
+	
+	UFUNCTION()
+	void HandleSpawnedAudioZoneDestroyed(AActor* DestroyedActor);
+
+	UFUNCTION(BlueprintImplementableEvent, Category="MD|Audio")
+	void OnSpawnedAudioZoneFinished();
 
 	void PlayAssignedAudioZone(APawn* Interactor);
 	void PlayOneShotAtSelf(USoundBase* Sound) const;

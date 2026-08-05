@@ -16,6 +16,8 @@ class USoundBase;
 class UPrimitiveComponent;
 class UNiagaraSystem;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FMDVoiceLinePlaybackChanged, bool);
+
 UENUM(BlueprintType)
 enum class EMD_AudioZoneNiagaraSpawnTarget : uint8
 {
@@ -43,6 +45,11 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category="MD|Audio")
 	bool IsZoneSoundPlaying() const;
+	
+	static bool TrySkipActiveVoiceLine();
+	static bool IsAnyVoiceLinePlaying();
+	
+	static FMDVoiceLinePlaybackChanged OnVoiceLinePlaybackChanged;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Audio|Components")
@@ -95,6 +102,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float FadeOutDuration = 0.5f;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
+	float SkipFadeOutDuration = 0.8f;
+	
 	// Zero means no playback limit.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio", meta=(ClampMin="0.0"))
 	float MaxPlaybackDuration = 0.0f;
@@ -141,20 +151,23 @@ private:
 	void UpdateTriggerState();
 	void StopCompetingVoiceLine();
 	void StopCompetingBackgroundMusic();
-	void StopVoiceLineImmediately();
 	void ClearActiveVoiceLineIfNeeded();
 	void ClearActiveBackgroundMusicIfNeeded();
 	void SpawnTriggeredNiagaraEffect() const;
+	void SkipZoneSound();
 	
 	bool IsPlayerActor(const AActor* Actor) const;
 	bool UsesTrigger() const;
 
 	bool bStopRequested = false;
 	bool bPlaybackLimitReached = false;
+	bool bSkipRequested = false;
 	
 	FTimerHandle PlaybackLimitTimer;
 
 	static TWeakObjectPtr<AMD_AudioZone> ActiveVoiceLineZone;
 	static TWeakObjectPtr<AMD_AudioZone> ActiveBackgroundMusicZone;
 
+	static void BroadcastVoiceLinePlaybackState();
+	static bool bLastBroadcastVoiceLinePlaying;
 };
