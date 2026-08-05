@@ -59,17 +59,6 @@ void AMD_PlayerCharacter::BeginPlay()
 	ULocalPlayer* LocalPlayer = CachedPlayerController->GetLocalPlayer();
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
 	Subsystem->AddMappingContext(DefaultMappingContext, 0);
-
-
-	//add crosshair to viewport
-	if (CrosshairWidgetClass && CachedPlayerController)
-	{
-		CrosshairWidget = CreateWidget<UUserWidget>(CachedPlayerController, CrosshairWidgetClass);
-		if (CrosshairWidget)
-		{
-			CrosshairWidget->AddToViewport();
-		}
-	} 
 }
 
 // Called every frame
