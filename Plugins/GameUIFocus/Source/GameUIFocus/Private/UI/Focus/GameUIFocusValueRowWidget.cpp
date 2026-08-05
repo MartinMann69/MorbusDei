@@ -1,6 +1,7 @@
 #include "UI/Focus/GameUIFocusValueRowWidget.h"
 
 #include "Components/TextBlock.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformTime.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
@@ -230,9 +231,11 @@ FReply UGameUIFocusValueRowWidget::NativeOnAnalogValueChanged(const FGeometry& I
 
 FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEvent)
 {
-	const FKey Key = KeyEvent.GetKey();
+	const EUINavigation NavigationDirection = FSlateApplication::IsInitialized()
+		? FSlateApplication::Get().GetNavigationDirectionFromKey(KeyEvent)
+		: EUINavigation::Invalid;
 
-	if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
+	if (NavigationDirection == EUINavigation::Left)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -252,7 +255,7 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (Key == EKeys::Right || Key == EKeys::Gamepad_DPad_Right)
+	if (NavigationDirection == EUINavigation::Right)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -272,7 +275,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == GameUIFocusInputKeys::GetVirtualAcceptKey() || Key == EKeys::Gamepad_FaceButton_Bottom)
+	const bool bAcceptAction = GameUIFocusInputKeys::IsAcceptAction(KeyEvent);
+	if (bAcceptAction)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -296,12 +300,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	const bool bMoveUp = Key == EKeys::Up
-		|| Key == EKeys::Gamepad_DPad_Up
-		|| Key == EKeys::Gamepad_LeftStick_Up;
-	const bool bMoveDown = Key == EKeys::Down
-		|| Key == EKeys::Gamepad_DPad_Down
-		|| Key == EKeys::Gamepad_LeftStick_Down;
+	const bool bMoveUp = NavigationDirection == EUINavigation::Up;
+	const bool bMoveDown = NavigationDirection == EUINavigation::Down;
 
 	if (bMoveUp)
 	{
@@ -335,7 +335,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (bIsOptionListExpanded && (Key == EKeys::Escape || Key == EKeys::Gamepad_FaceButton_Right))
+	const bool bBackAction = GameUIFocusInputKeys::IsBackAction(KeyEvent);
+	if (bIsOptionListExpanded && bBackAction)
 	{
 		SetOptionListExpanded(false);
 		return FReply::Handled();

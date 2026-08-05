@@ -15,6 +15,7 @@ UGameUIFocusPageWidgetBase::UGameUIFocusPageWidgetBase(const FObjectInitializer&
 void UGameUIFocusPageWidgetBase::NativeConstruct()
 {
 	Super::NativeConstruct();
+	ResetAnalogNavigation();
 
 	if (bAutoRegisterFocusItemsOnConstruct)
 	{
@@ -22,23 +23,58 @@ void UGameUIFocusPageWidgetBase::NativeConstruct()
 	}
 }
 
+void UGameUIFocusPageWidgetBase::NativeDestruct()
+{
+	ResetAnalogNavigation();
+	Super::NativeDestruct();
+}
+
 void UGameUIFocusPageWidgetBase::RegisterFocusItem(UGameUIFocusItemWidgetBase* Item)
 {
-	if (Item)
+	if (!Item)
 	{
-		Item->SetOwningFocusPage(this);
-		RegisteredFocusItems.AddUnique(TWeakObjectPtr<UGameUIFocusItemWidgetBase>(Item));
-		UE_LOG(LogGameUIFocus, VeryVerbose,
-			TEXT("GameUIFocusTrace PageRegisterItem Page=%s Item=%s RegisteredItems=%d"),
+		return;
+	}
+
+	if (!Item->IsFocusable())
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UE_LOG(LogGameUIFocus, Warning,
+			TEXT("GameUIFocus page rejected non-focusable item. Page=%s Item=%s."),
+			*GetNameSafe(this),
+			*GetNameSafe(Item));
+#endif
+		return;
+	}
+
+	// Equivalent to UUserWidgetFunctionLibrary::GetOuterUserWidget(), whose
+	// UE 5.7 symbol is not exported for direct runtime-module linkage.
+	UUserWidget* OuterUserWidget = Item->GetTypedOuter<UUserWidget>();
+	if (OuterUserWidget != this)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UE_LOG(LogGameUIFocus, Warning,
+			TEXT("GameUIFocus page rejected nested focus item. Page=%s Item=%s OuterUserWidget=%s."),
 			*GetNameSafe(this),
 			*GetNameSafe(Item),
-			RegisteredFocusItems.Num());
+			*GetNameSafe(OuterUserWidget));
+#endif
+		return;
 	}
+
+	TryMigrateLegacyAnalogConfig(Item);
+	Item->SetOwningFocusPage(this);
+	RegisteredFocusItems.AddUnique(TWeakObjectPtr<UGameUIFocusItemWidgetBase>(Item));
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("GameUIFocusTrace PageRegisterItem Page=%s Item=%s RegisteredItems=%d"),
+		*GetNameSafe(this),
+		*GetNameSafe(Item),
+		RegisteredFocusItems.Num());
 }
 
 void UGameUIFocusPageWidgetBase::RegisterFocusItemsInWidgetTree()
 {
-	PruneInvalidRegisteredFocusItems();
+	ClearRegisteredFocusItems();
 
 	if (!WidgetTree)
 	{
@@ -56,7 +92,19 @@ void UGameUIFocusPageWidgetBase::RegisterFocusItemsInWidgetTree()
 
 void UGameUIFocusPageWidgetBase::ClearRegisteredFocusItems()
 {
+	for (const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem : RegisteredFocusItems)
+	{
+		if (UGameUIFocusItemWidgetBase* Item = WeakItem.Get())
+		{
+			if (Item->GetOwningFocusPage() == this)
+			{
+				Item->SetOwningFocusPage(nullptr);
+			}
+		}
+	}
+
 	RegisteredFocusItems.Reset();
+	LastFocusWidget = nullptr;
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace PageClearRegisteredItems Page=%s"),
 		*GetNameSafe(this));
@@ -78,23 +126,32 @@ TArray<UGameUIFocusItemWidgetBase*> UGameUIFocusPageWidgetBase::GetRegisteredFoc
 
 void UGameUIFocusPageWidgetBase::RememberFocusedWidget(UWidget* Widget)
 {
-	if (IsUsableFocusTarget(Widget))
+	UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+	if (IsUsableFocusTarget(FocusItem) && IsRegisteredFocusItem(FocusItem))
 	{
-		LastFocusWidget = Widget;
+		LastFocusWidget = FocusItem;
 		UE_LOG(LogGameUIFocus, VeryVerbose,
 			TEXT("GameUIFocusTrace PageRememberFocus Page=%s Widget=%s"),
 			*GetNameSafe(this),
 			*GetNameSafe(Widget));
 		if (OwningFocusScreen)
 		{
-			OwningFocusScreen->RememberFocusedWidget(Widget);
+			OwningFocusScreen->RememberFocusedWidget(FocusItem);
 		}
+		return;
 	}
+
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("GameUIFocusTrace PageRememberFocusRejected Page=%s Widget=%s Registered=%d"),
+		*GetNameSafe(this),
+		*GetNameSafe(Widget),
+		IsRegisteredFocusItem(FocusItem) ? 1 : 0);
 }
 
 void UGameUIFocusPageWidgetBase::NotifyFocusItemFocused(UWidget* Widget)
 {
-	if (!IsUsableFocusTarget(Widget))
+	UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+	if (!IsUsableFocusTarget(FocusItem) || !IsRegisteredFocusItem(FocusItem))
 	{
 		UE_LOG(LogGameUIFocus, VeryVerbose,
 			TEXT("GameUIFocusTrace PageNotifyFocusRejected Page=%s Widget=%s"),
@@ -103,28 +160,30 @@ void UGameUIFocusPageWidgetBase::NotifyFocusItemFocused(UWidget* Widget)
 		return;
 	}
 
-	LastFocusWidget = Widget;
+	LastFocusWidget = FocusItem;
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace PageNotifyFocus Page=%s Widget=%s OwningScreen=%s"),
 		*GetNameSafe(this),
 		*GetNameSafe(Widget),
 		*GetNameSafe(OwningFocusScreen.Get()));
-	HandleFocusItemFocused(Widget);
+	HandleFocusItemFocused(FocusItem);
 
 	if (OwningFocusScreen)
 	{
-		OwningFocusScreen->NotifyContentWidgetFocused(Widget);
+		OwningFocusScreen->NotifyContentWidgetFocused(FocusItem);
 	}
 }
 
 UWidget* UGameUIFocusPageWidgetBase::GetBestFocusTarget() const
 {
-	if (IsUsableFocusTarget(LastFocusWidget))
+	const UGameUIFocusItemWidgetBase* LastFocusItem = Cast<UGameUIFocusItemWidgetBase>(LastFocusWidget.Get());
+	if (IsUsableFocusTarget(LastFocusItem) && IsRegisteredFocusItem(LastFocusItem))
 	{
 		return LastFocusWidget;
 	}
 
-	if (IsUsableFocusTarget(DefaultFocusWidget))
+	const UGameUIFocusItemWidgetBase* DefaultFocusItem = Cast<UGameUIFocusItemWidgetBase>(DefaultFocusWidget.Get());
+	if (IsUsableFocusTarget(DefaultFocusItem) && IsRegisteredFocusItem(DefaultFocusItem))
 	{
 		return DefaultFocusWidget.Get();
 	}
@@ -157,8 +216,15 @@ bool UGameUIFocusPageWidgetBase::FocusBestTarget()
 		if (APlayerController* PlayerController = GetOwningPlayer())
 		{
 			Target->SetUserFocus(PlayerController);
+			if (!Target->HasUserFocus(PlayerController))
+			{
+				Target->SetKeyboardFocus();
+			}
 		}
-		Target->SetKeyboardFocus();
+		else
+		{
+			Target->SetKeyboardFocus();
+		}
 		return true;
 	}
 
@@ -172,65 +238,7 @@ bool UGameUIFocusPageWidgetBase::FocusAdjacentItem(UGameUIFocusItemWidgetBase* C
 
 bool UGameUIFocusPageWidgetBase::FocusAdjacentItem2D(UGameUIFocusItemWidgetBase* CurrentItem, FIntPoint Direction)
 {
-	if (Direction == FIntPoint::ZeroValue)
-	{
-		return false;
-	}
-
-	PruneInvalidRegisteredFocusItems();
-
-	if (UGameUIFocusItemWidgetBase* GridTarget = FindBestGridTarget(CurrentItem, Direction))
-	{
-		return FocusItemInternal(GridTarget);
-	}
-
-	TArray<UGameUIFocusItemWidgetBase*> UsableItems;
-	int32 CurrentIndex = INDEX_NONE;
-
-	for (const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem : RegisteredFocusItems)
-	{
-		UGameUIFocusItemWidgetBase* Item = WeakItem.Get();
-		if (!IsUsableFocusTarget(Item))
-		{
-			continue;
-		}
-
-		const int32 ItemIndex = UsableItems.Add(Item);
-		if (Item == CurrentItem)
-		{
-			CurrentIndex = ItemIndex;
-		}
-	}
-
-	if (UsableItems.Num() <= 0)
-	{
-		UE_LOG(LogGameUIFocus, VeryVerbose,
-			TEXT("GameUIFocusTrace PageFocusAdjacentRejected Page=%s Current=%s Direction=%d Reason=NoUsableItems RegisteredItems=%d"),
-			*GetNameSafe(this),
-			*GetNameSafe(CurrentItem),
-			Direction.Y != 0 ? Direction.Y : Direction.X,
-			RegisteredFocusItems.Num());
-		return false;
-	}
-
-	const int32 LinearDirection = Direction.Y != 0 ? Direction.Y : Direction.X;
-	const int32 TargetIndex = CurrentIndex == INDEX_NONE
-		? (LinearDirection > 0 ? 0 : UsableItems.Num() - 1)
-		: FMath::Clamp(CurrentIndex + LinearDirection, 0, UsableItems.Num() - 1);
-
-	UGameUIFocusItemWidgetBase* Target = UsableItems[TargetIndex];
-	UE_LOG(LogGameUIFocus, VeryVerbose,
-		TEXT("GameUIFocusTrace PageFocusAdjacent Page=%s Current=%s CurrentIndex=%d Target=%s TargetIndex=%d Direction=%d UsableItems=%d OwningScreen=%s"),
-		*GetNameSafe(this),
-		*GetNameSafe(CurrentItem),
-		CurrentIndex,
-		*GetNameSafe(Target),
-		TargetIndex,
-		LinearDirection,
-		UsableItems.Num(),
-		*GetNameSafe(OwningFocusScreen.Get()));
-
-	return FocusItemInternal(Target);
+	return NavigateFromItem(CurrentItem, Direction) == EGameUIFocusNavigationResult::Moved;
 }
 
 bool UGameUIFocusPageWidgetBase::FocusItemByIdentifier(FGameplayTag FocusIdentifier)
@@ -268,16 +276,96 @@ void UGameUIFocusPageWidgetBase::SetFocusScrollBox(UScrollBox* InFocusScrollBox)
 	FocusScrollBox = InFocusScrollBox;
 }
 
+bool UGameUIFocusPageWidgetBase::HandleFocusItemAnalogInput(
+	UGameUIFocusItemWidgetBase* CurrentItem,
+	const FKey Key,
+	const float Value)
+{
+	if (!IsUsableFocusTarget(CurrentItem) || CurrentItem->GetOwningFocusPage() != this)
+	{
+		return false;
+	}
+
+	const double CurrentTimeSeconds = FPlatformTime::Seconds();
+	const FGameUIAnalogNavigationResult Result = AnalogNavigationState.ProcessAxis(
+		Key,
+		Value,
+		CurrentTimeSeconds,
+		AnalogNavigationConfig,
+		AnalogNavigationMode);
+
+	if (!Result.bHandled)
+	{
+		return false;
+	}
+
+	if (!Result.bShouldNavigate)
+	{
+		return true;
+	}
+
+	const EGameUIFocusNavigationResult NavigationResult = NavigateFromItem(CurrentItem, Result.Direction);
+	if (NavigationResult == EGameUIFocusNavigationResult::Moved)
+	{
+		AnalogNavigationState.NotifyNavigationSucceeded();
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace AnalogAccepted Owner=Page Page=%s Item=%s Direction=(%d,%d) Magnitude=%.3f Repeat=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(CurrentItem),
+			Result.Direction.X,
+			Result.Direction.Y,
+			Result.Magnitude,
+			Result.bIsRepeat ? 1 : 0);
+	}
+	else if (NavigationResult == EGameUIFocusNavigationResult::Blocked)
+	{
+		const bool bShouldBroadcastBlocked = AnalogNavigationState.NotifyNavigationBlocked();
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace AnalogBlocked Owner=Page Page=%s Item=%s Direction=(%d,%d) Magnitude=%.3f Repeat=%d Feedback=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(CurrentItem),
+			Result.Direction.X,
+			Result.Direction.Y,
+			Result.Magnitude,
+			Result.bIsRepeat ? 1 : 0,
+			bShouldBroadcastBlocked ? 1 : 0);
+
+		if (bShouldBroadcastBlocked)
+		{
+			OnNavigationBlocked.Broadcast(CurrentItem, Result.Direction);
+		}
+	}
+
+	return true;
+}
+
+bool UGameUIFocusPageWidgetBase::HandleFocusItemDigitalInput(
+	UGameUIFocusItemWidgetBase* CurrentItem,
+	const FIntPoint Direction)
+{
+	const EGameUIFocusNavigationResult Result = NavigateFromItem(CurrentItem, Direction);
+	if (Result == EGameUIFocusNavigationResult::Blocked)
+	{
+		OnNavigationBlocked.Broadcast(CurrentItem, Direction);
+	}
+
+	return Result != EGameUIFocusNavigationResult::Unhandled;
+}
+
 void UGameUIFocusPageWidgetBase::OnPageActivated_Implementation()
 {
+	ResetAnalogNavigation();
 }
 
 void UGameUIFocusPageWidgetBase::OnPageDeactivated_Implementation()
 {
+	ResetAnalogNavigation();
 }
 
 bool UGameUIFocusPageWidgetBase::EnterPageFocus_Implementation()
 {
+	ResetAnalogNavigation();
+
 	if (UWidget* Target = GetBestFocusTarget())
 	{
 		UE_LOG(LogGameUIFocus, VeryVerbose,
@@ -294,8 +382,15 @@ bool UGameUIFocusPageWidgetBase::EnterPageFocus_Implementation()
 		if (APlayerController* PlayerController = GetOwningPlayer())
 		{
 			Target->SetUserFocus(PlayerController);
+			if (!Target->HasUserFocus(PlayerController))
+			{
+				Target->SetKeyboardFocus();
+			}
 		}
-		Target->SetKeyboardFocus();
+		else
+		{
+			Target->SetKeyboardFocus();
+		}
 		return true;
 	}
 
@@ -310,6 +405,7 @@ bool UGameUIFocusPageWidgetBase::EnterPageFocus_Implementation()
 
 void UGameUIFocusPageWidgetBase::LeavePageFocus_Implementation()
 {
+	ResetAnalogNavigation();
 }
 
 void UGameUIFocusPageWidgetBase::HandleFocusItemFocused_Implementation(UWidget* Widget)
@@ -352,6 +448,101 @@ void UGameUIFocusPageWidgetBase::PruneInvalidRegisteredFocusItems()
 	});
 }
 
+bool UGameUIFocusPageWidgetBase::IsRegisteredFocusItem(const UGameUIFocusItemWidgetBase* Item) const
+{
+	if (!Item)
+	{
+		return false;
+	}
+
+	return RegisteredFocusItems.ContainsByPredicate([Item](const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem)
+	{
+		return WeakItem.Get() == Item;
+	});
+}
+
+EGameUIFocusNavigationResult UGameUIFocusPageWidgetBase::NavigateFromItem(
+	UGameUIFocusItemWidgetBase* CurrentItem,
+	FIntPoint Direction)
+{
+	Direction.X = FMath::Clamp(Direction.X, -1, 1);
+	Direction.Y = FMath::Clamp(Direction.Y, -1, 1);
+	if (Direction == FIntPoint::ZeroValue
+		|| !IsUsableFocusTarget(CurrentItem)
+		|| !IsRegisteredFocusItem(CurrentItem))
+	{
+		return EGameUIFocusNavigationResult::Unhandled;
+	}
+
+	PruneInvalidRegisteredFocusItems();
+
+	const FGameplayTag OverrideIdentifier = CurrentItem->GetFocusOverrideIdentifier(Direction);
+	if (OverrideIdentifier.IsValid())
+	{
+		for (const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem : RegisteredFocusItems)
+		{
+			UGameUIFocusItemWidgetBase* Candidate = WeakItem.Get();
+			if (IsUsableFocusTarget(Candidate) && Candidate->GetFocusIdentifier() == OverrideIdentifier)
+			{
+				return FocusItemInternal(Candidate)
+					? EGameUIFocusNavigationResult::Moved
+					: EGameUIFocusNavigationResult::Blocked;
+			}
+		}
+
+		return EGameUIFocusNavigationResult::Blocked;
+	}
+
+	if (UGameUIFocusItemWidgetBase* GridTarget = FindBestGridTarget(CurrentItem, Direction))
+	{
+		return FocusItemInternal(GridTarget)
+			? EGameUIFocusNavigationResult::Moved
+			: EGameUIFocusNavigationResult::Blocked;
+	}
+
+	TArray<UGameUIFocusItemWidgetBase*> UsableItems;
+	int32 CurrentIndex = INDEX_NONE;
+	for (const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem : RegisteredFocusItems)
+	{
+		UGameUIFocusItemWidgetBase* Item = WeakItem.Get();
+		if (!IsUsableFocusTarget(Item))
+		{
+			continue;
+		}
+
+		const int32 ItemIndex = UsableItems.Add(Item);
+		if (Item == CurrentItem)
+		{
+			CurrentIndex = ItemIndex;
+		}
+	}
+
+	if (CurrentIndex == INDEX_NONE || UsableItems.IsEmpty())
+	{
+		return EGameUIFocusNavigationResult::Unhandled;
+	}
+
+	const int32 LinearDirection = FMath::Sign(Direction.Y != 0 ? Direction.Y : Direction.X);
+	const int32 TargetIndex = CurrentIndex + LinearDirection;
+	if (!UsableItems.IsValidIndex(TargetIndex))
+	{
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace PageNavigationBlocked Page=%s Current=%s Direction=(%d,%d) Index=%d Items=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(CurrentItem),
+			Direction.X,
+			Direction.Y,
+			CurrentIndex,
+			UsableItems.Num());
+		return EGameUIFocusNavigationResult::Blocked;
+	}
+
+	UGameUIFocusItemWidgetBase* Target = UsableItems[TargetIndex];
+	return Target != CurrentItem && FocusItemInternal(Target)
+		? EGameUIFocusNavigationResult::Moved
+		: EGameUIFocusNavigationResult::Blocked;
+}
+
 namespace
 {
 	void ApplyDirectWidgetFocus(UWidget* Target, APlayerController* OwningPlayer)
@@ -364,6 +555,10 @@ namespace
 		if (OwningPlayer)
 		{
 			Target->SetUserFocus(OwningPlayer);
+			if (Target->HasUserFocus(OwningPlayer))
+			{
+				return;
+			}
 		}
 		Target->SetKeyboardFocus();
 	}
@@ -376,14 +571,40 @@ bool UGameUIFocusPageWidgetBase::FocusItemInternal(UGameUIFocusItemWidgetBase* T
 		return false;
 	}
 
-	RememberFocusedWidget(Target);
 	if (OwningFocusScreen)
 	{
 		return OwningFocusScreen->RequestFocusNextTickForZone(Target, EGameUIFocusZone::Content);
 	}
 
+	RememberFocusedWidget(Target);
 	ApplyDirectWidgetFocus(Target, GetOwningPlayer());
 	return true;
+}
+
+void UGameUIFocusPageWidgetBase::ResetAnalogNavigation()
+{
+	AnalogNavigationState.Reset();
+}
+
+void UGameUIFocusPageWidgetBase::TryMigrateLegacyAnalogConfig(const UGameUIFocusItemWidgetBase* Item)
+{
+	if (bMigratedLegacyAnalogConfig || !Item)
+	{
+		return;
+	}
+
+	FGameUIAnalogNavigationConfig LegacyConfig;
+	if (!Item->TryGetCustomizedLegacyAnalogNavigationConfig(LegacyConfig))
+	{
+		return;
+	}
+
+	AnalogNavigationConfig = LegacyConfig;
+	bMigratedLegacyAnalogConfig = true;
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("Migrated customized item-level analog navigation values at runtime. Page=%s SourceItem=%s. Move these values to the page AnalogNavigationConfig."),
+		*GetNameSafe(this),
+		*GetNameSafe(Item));
 }
 
 UGameUIFocusItemWidgetBase* UGameUIFocusPageWidgetBase::FindBestGridTarget(
@@ -438,6 +659,12 @@ UGameUIFocusItemWidgetBase* UGameUIFocusPageWidgetBase::FindBestGridTarget(
 bool UGameUIFocusPageWidgetBase::IsUsableFocusTarget(const UWidget* Widget)
 {
 	if (!IsValid(Widget) || !Widget->GetIsEnabled())
+	{
+		return false;
+	}
+
+	const UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+	if (!FocusItem || !FocusItem->IsFocusable())
 	{
 		return false;
 	}

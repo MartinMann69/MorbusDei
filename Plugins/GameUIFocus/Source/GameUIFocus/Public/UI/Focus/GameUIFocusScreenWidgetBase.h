@@ -21,6 +21,20 @@ struct FGameUIFocusNavigationEntry
 	int32 PageIndex = INDEX_NONE;
 };
 
+/** Designer-authored navigation entry resolved from the runtime widget hierarchy. */
+USTRUCT(BlueprintType)
+struct FGameUIFocusNavigationBinding
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game UI|Focus")
+	FName WidgetName = NAME_None;
+
+	/** INDEX_NONE creates an action-only entry such as Back. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game UI|Focus")
+	int32 PageIndex = INDEX_NONE;
+};
+
 USTRUCT()
 struct FGameUIFocusStateSnapshot
 {
@@ -50,8 +64,29 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
 	FGameUINavigationIndexChanged OnNavigationIndexChanged;
 
+	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
+	FGameUIFocusNavigationBlocked OnNavigationBlocked;
+
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool InitializeFocusScreen(bool bFocusNavigation = true);
+
+	/**
+	 * Marks this screen as the active top entry and restores its focus after the
+	 * current layer-stack mutation has completed. Repeated requests are
+	 * serialized; only the newest request may apply focus.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
+	bool RequestFocusScreenActivation(bool bFocusNavigation = true);
+
+	/**
+	 * Invalidates pending activation/focus work when this screen is covered or
+	 * removed from its layer. Remembered navigation and content focus are kept.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
+	void DeactivateFocusScreen();
+
+	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
+	bool IsFocusScreenActive() const { return bIsFocusScreenActive; }
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	void RegisterNavigationWidget(UWidget* Widget);
@@ -99,7 +134,13 @@ public:
 	bool SetNavigationFocusByIndex(int32 NavigationIndex);
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
-	bool MoveNavigationFocus(int32 Direction);
+	virtual bool MoveNavigationFocus(int32 Direction);
+
+	/** Routes analog input from a registered navigation item through the screen-owned gesture state. */
+	bool HandleNavigationWidgetAnalogInput(UWidget* NavigationWidget, FKey Key, float Value);
+
+	/** Routes D-pad/keyboard navigation directly from the focused registered entry. */
+	bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat);
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool RequestFocusNextTick(UWidget* Widget);
@@ -123,6 +164,8 @@ public:
 	UWidget* GetActivePageWidget() const;
 
 protected:
+	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 	virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
 
@@ -147,6 +190,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	TArray<FGameUIFocusNavigationEntry> NavigationEntries;
 
+	/** Optional deterministic setup; names may resolve inside composed child widgets. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus")
+	TArray<FGameUIFocusNavigationBinding> NavigationBindings;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	EGameUIFocusZone CurrentFocusZone = EGameUIFocusZone::Navigation;
 
@@ -159,16 +206,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	float NavigationRepeatDelay = 0.18f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	/** Shared tuning for navigation entries and the rightward left-stick gesture entering content. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Analog", meta = (ShowOnlyInnerProperties))
+	FGameUIAnalogNavigationConfig AnalogNavigationConfig;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", ClampMax = "1.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig instead."))
 	float AnalogNavigationDeadZone = 0.55f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", ClampMax = "1.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig instead."))
 	float AnalogNavigationReleaseThreshold = 0.35f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig instead."))
 	float AnalogInitialRepeatDelay = 0.30f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig instead."))
 	float AnalogRepeatInterval = 0.11f;
 
 public:
@@ -176,32 +227,38 @@ public:
 	bool RequestFocusNextTickForZone(UWidget* Widget, EGameUIFocusZone Zone);
 
 private:
+#if WITH_DEV_AUTOMATION_TESTS
+	friend class FGameUIFocusSettingsAssetContractTest;
+	friend class FGameUIFocusRuntimeAssetEventRoutingTest;
+#endif
+
+	void ClearNavigationEntries();
+	void RebuildNavigationEntriesFromBindings();
+	void NotifyActivePageDeactivated();
 	bool RequestFocusNextTickInternal(UWidget* Widget, bool bApplyZone, EGameUIFocusZone Zone, int32 NavigationIndexToApply = INDEX_NONE, bool bLeaveActivePageOnSuccess = false);
+	bool TryApplyPlayerFocus(UWidget* Widget) const;
+	bool TryApplyKeyboardFocus(UWidget* Widget) const;
+	void FinalizeFocusRequest(UWidget* Widget, bool bApplyZone, EGameUIFocusZone Zone, int32 NavigationIndexToApply, bool bLeaveActivePageOnSuccess);
+	bool IsRetryTargetValid(UWidget* Widget, EGameUIFocusZone Zone) const;
 	void LeaveActivePageFocus();
 	UWidget* GetActiveFocusPageWidget() const;
 	void SetCurrentFocusZone(EGameUIFocusZone NewZone);
 	void SetActiveNavigationIndex(int32 NewIndex);
 	int32 FindNavigationIndexForWidget(const UWidget* Widget) const;
 	int32 FindNavigationIndexForPageIndex(int32 PageIndex) const;
+	bool ProcessNavigationAnalogInput(FKey Key, float Value);
 	int32 GetPageIndexForNavigationIndex(int32 NavigationIndex) const;
 	UWidget* GetNavigationWidgetByIndex(int32 NavigationIndex) const;
 	int32 GetNavigationEntryCount() const;
 	bool CanProcessNavigationMove(bool bIsRepeat);
-	bool HandleAnalogNavigationMove(int32 Direction, float Magnitude);
-	bool HandleAnalogContentEnter(float Magnitude);
-	void ResetAnalogNavigationMove();
-	void ResetAnalogContentEnter();
+	void ResetAnalogNavigation();
+	void TryMigrateLegacyAnalogConfig();
 	void WarnIfWeakFocusTarget(const UWidget* Widget, EGameUIFocusZone Zone) const;
 	void LogContentFocusFailure(const TCHAR* Reason, const UWidget* ContextWidget = nullptr) const;
 	static bool IsUsableFocusTarget(const UWidget* Widget);
 	static bool IsFocusPageWidget(const UWidget* Widget);
 	static UWidget* FindFocusPageWidget(UWidget* RootWidget);
-	static bool IsRightKey(const FKey& Key);
-	static bool IsAcceptKey(const FKey& Key);
-	static bool IsUpKey(const FKey& Key);
-	static bool IsDownKey(const FKey& Key);
-	static bool IsBackKey(const FKey& Key);
-
+	static UWidget* FindWidgetByNameRecursive(UWidget* RootWidget, FName WidgetName);
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UWidget> LastFocusedWidget;
 
@@ -209,11 +266,10 @@ private:
 	TArray<FGameUIFocusStateSnapshot> ModalFocusStack;
 
 	uint64 FocusRequestSerial = 0;
+	uint64 FocusScreenActivationSerial = 0;
+	bool bIsFocusScreenActive = false;
 
 	double LastNavigationMoveTimeSeconds = -1000.0;
-	double LastAnalogNavigationMoveTimeSeconds = -1000.0;
-	int32 LastAnalogNavigationDirection = 0;
-	bool bAnalogNavigationHeld = false;
-	bool bAnalogNavigationRepeatActive = false;
-	bool bAnalogContentEnterHeld = false;
+	FGameUIAnalogNavigationState AnalogNavigationState;
+	bool bMigratedLegacyAnalogConfig = false;
 };

@@ -5,6 +5,7 @@
 #include "Components/Widget.h"
 #include "Components/WidgetSwitcher.h"
 #include "Engine/World.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformTime.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
@@ -51,8 +52,109 @@ UGameUIFocusScreenWidgetBase::UGameUIFocusScreenWidgetBase(const FObjectInitiali
 	SetIsFocusable(true);
 }
 
+void UGameUIFocusScreenWidgetBase::NativeConstruct()
+{
+	Super::NativeConstruct();
+	RebuildNavigationEntriesFromBindings();
+}
+
+void UGameUIFocusScreenWidgetBase::NativeDestruct()
+{
+	++FocusScreenActivationSerial;
+	++FocusRequestSerial;
+	bIsFocusScreenActive = false;
+	ResetAnalogNavigation();
+	Super::NativeDestruct();
+}
+
+bool UGameUIFocusScreenWidgetBase::RequestFocusScreenActivation(const bool bFocusNavigation)
+{
+	// A layer activation is authoritative over focus work requested while the
+	// widget was still being constructed or attached to its layer.
+	++FocusRequestSerial;
+	ResetAnalogNavigation();
+	bIsFocusScreenActive = true;
+
+	const uint64 ActivationSerial = ++FocusScreenActivationSerial;
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("GameUIFocusTrace ScreenActivationScheduled Screen=%s Serial=%llu FocusNavigation=%d"),
+		*GetNameSafe(this),
+		ActivationSerial,
+		bFocusNavigation ? 1 : 0);
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		const bool bActivated = InitializeFocusScreen(bFocusNavigation);
+		bIsFocusScreenActive = bActivated;
+		return bActivated;
+	}
+
+	const TWeakObjectPtr<UGameUIFocusScreenWidgetBase> WeakThis = this;
+	World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda(
+		[WeakThis, ActivationSerial, bFocusNavigation]()
+		{
+			UGameUIFocusScreenWidgetBase* FocusScreen = WeakThis.Get();
+			if (!FocusScreen
+				|| FocusScreen->FocusScreenActivationSerial != ActivationSerial
+				|| !FocusScreen->bIsFocusScreenActive)
+			{
+				UE_LOG(LogGameUIFocus, VeryVerbose,
+					TEXT("GameUIFocusTrace ScreenActivationSkipped Screen=%s Serial=%llu Reason=Stale"),
+					*GetNameSafe(FocusScreen),
+					ActivationSerial);
+				return;
+			}
+
+			const ESlateVisibility Visibility = FocusScreen->GetVisibility();
+			if (Visibility == ESlateVisibility::Collapsed || Visibility == ESlateVisibility::Hidden)
+			{
+				FocusScreen->bIsFocusScreenActive = false;
+				UE_LOG(LogGameUIFocus, VeryVerbose,
+					TEXT("GameUIFocusTrace ScreenActivationSkipped Screen=%s Serial=%llu Reason=Hidden Visibility=%d"),
+					*GetNameSafe(FocusScreen),
+					ActivationSerial,
+					static_cast<int32>(Visibility));
+				return;
+			}
+
+			const bool bActivated = FocusScreen->InitializeFocusScreen(bFocusNavigation);
+			FocusScreen->bIsFocusScreenActive = bActivated;
+			UE_LOG(LogGameUIFocus, VeryVerbose,
+				TEXT("GameUIFocusTrace ScreenActivationCompleted Screen=%s Serial=%llu Confirmed=%d"),
+				*GetNameSafe(FocusScreen),
+				ActivationSerial,
+				bActivated ? 1 : 0);
+		}));
+
+	return true;
+}
+
+void UGameUIFocusScreenWidgetBase::DeactivateFocusScreen()
+{
+	const bool bWasActive = bIsFocusScreenActive;
+	++FocusScreenActivationSerial;
+	++FocusRequestSerial;
+	bIsFocusScreenActive = false;
+	ResetAnalogNavigation();
+
+	if (bWasActive)
+	{
+		NotifyActivePageDeactivated();
+	}
+
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("GameUIFocusTrace ScreenDeactivated Screen=%s WasActive=%d ActiveNav=%d Zone=%s"),
+		*GetNameSafe(this),
+		bWasActive ? 1 : 0,
+		ActiveNavigationIndex,
+		*FocusZoneToString(CurrentFocusZone));
+}
+
 bool UGameUIFocusScreenWidgetBase::InitializeFocusScreen(bool bFocusNavigation)
 {
+	TryMigrateLegacyAnalogConfig();
+	ResetAnalogNavigation();
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace Initialize Screen=%s bFocusNavigation=%d ActiveNav=%d Switcher=%s ActivePage=%s"),
 		*GetNameSafe(this),
@@ -92,11 +194,26 @@ void UGameUIFocusScreenWidgetBase::RegisterNavigationEntry(UWidget* Widget, int3
 {
 	if (!Widget)
 	{
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace RegisterNavigationRejected Screen=%s PageIndex=%d Reason=NullWidget"),
+			*GetNameSafe(this),
+			PageIndex);
 		return;
 	}
 
 	if (UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget))
 	{
+		if (!FocusItem->IsFocusable())
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			UE_LOG(LogGameUIFocus, Warning,
+				TEXT("GameUIFocus screen rejected non-focusable navigation item. Screen=%s Item=%s."),
+				*GetNameSafe(this),
+				*GetNameSafe(FocusItem));
+#endif
+			return;
+		}
+
 		FocusItem->SetOwningNavigationScreen(this);
 	}
 
@@ -117,7 +234,7 @@ void UGameUIFocusScreenWidgetBase::RegisterNavigationEntry(UWidget* Widget, int3
 
 void UGameUIFocusScreenWidgetBase::SetNavigationWidgets(const TArray<UWidget*>& Widgets)
 {
-	NavigationEntries.Reset();
+	ClearNavigationEntries();
 	for (UWidget* Widget : Widgets)
 	{
 		RegisterNavigationWidget(Widget);
@@ -126,9 +243,10 @@ void UGameUIFocusScreenWidgetBase::SetNavigationWidgets(const TArray<UWidget*>& 
 
 void UGameUIFocusScreenWidgetBase::SetNavigationEntries(const TArray<FGameUIFocusNavigationEntry>& Entries)
 {
-	NavigationEntries.Reset();
+	const TArray<FGameUIFocusNavigationEntry> EntriesCopy = Entries;
+	ClearNavigationEntries();
 
-	for (const FGameUIFocusNavigationEntry& Entry : Entries)
+	for (const FGameUIFocusNavigationEntry& Entry : EntriesCopy)
 	{
 		if (Entry.NavigationWidget)
 		{
@@ -325,7 +443,7 @@ bool UGameUIFocusScreenWidgetBase::EnterContentZone()
 	if (UGameUIFocusPageWidgetBase* NativeFocusPage = Cast<UGameUIFocusPageWidgetBase>(ActivePage))
 	{
 		NativeFocusPage->SetOwningFocusScreen(this);
-		UE_LOG(LogGameUIFocus, Warning,
+		UE_LOG(LogGameUIFocus, VeryVerbose,
 			TEXT("GameUIFocusTrace EnterContentNativePage Screen=%s Page=%s BestTarget=%s RegisteredItems=%d"),
 			*GetNameSafe(this),
 			*GetNameSafe(ActivePage),
@@ -454,7 +572,12 @@ bool UGameUIFocusScreenWidgetBase::MoveNavigationFocus(int32 Direction)
 		return false;
 	}
 
-	const int32 NewIndex = (ActiveNavigationIndex + Direction + EntryCount) % EntryCount;
+	const int32 NewIndex = FMath::Clamp(ActiveNavigationIndex + FMath::Sign(Direction), 0, EntryCount - 1);
+	if (NewIndex == ActiveNavigationIndex)
+	{
+		return false;
+	}
+
 	const int32 PageIndex = GetPageIndexForNavigationIndex(NewIndex);
 	if (bSwitchPageWithNavigationFocus && FocusWidgetSwitcher && PageIndex >= 0 && PageIndex < FocusWidgetSwitcher->GetNumWidgets())
 	{
@@ -463,6 +586,65 @@ bool UGameUIFocusScreenWidgetBase::MoveNavigationFocus(int32 Direction)
 	}
 
 	return SetNavigationFocusByIndex(NewIndex);
+}
+
+bool UGameUIFocusScreenWidgetBase::HandleNavigationWidgetAnalogInput(
+	UWidget* NavigationWidget,
+	const FKey Key,
+	const float Value)
+{
+	const int32 NavigationIndex = FindNavigationIndexForWidget(NavigationWidget);
+	if (CurrentFocusZone != EGameUIFocusZone::Navigation
+		|| NavigationIndex == INDEX_NONE
+		|| NavigationIndex != ActiveNavigationIndex)
+	{
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace NavigationItemAnalogRejected Screen=%s Widget=%s Key=%s Value=%.3f Zone=%s ItemIndex=%d ActiveIndex=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(NavigationWidget),
+			*Key.ToString(),
+			Value,
+			*FocusZoneToString(CurrentFocusZone),
+			NavigationIndex,
+			ActiveNavigationIndex);
+		return false;
+	}
+
+	return ProcessNavigationAnalogInput(Key, Value);
+}
+
+bool UGameUIFocusScreenWidgetBase::HandleNavigationWidgetDigitalInput(
+	UWidget* NavigationWidget,
+	FIntPoint Direction,
+	const bool bIsRepeat)
+{
+	Direction.X = FMath::Clamp(Direction.X, -1, 1);
+	Direction.Y = FMath::Clamp(Direction.Y, -1, 1);
+	const int32 NavigationIndex = FindNavigationIndexForWidget(NavigationWidget);
+	if (CurrentFocusZone != EGameUIFocusZone::Navigation
+		|| NavigationIndex == INDEX_NONE
+		|| NavigationIndex != ActiveNavigationIndex
+		|| Direction == FIntPoint::ZeroValue)
+	{
+		return false;
+	}
+
+	if (Direction.Y != 0)
+	{
+		if (CanProcessNavigationMove(bIsRepeat))
+		{
+			MoveNavigationFocus(Direction.Y);
+		}
+		return true;
+	}
+
+	if (Direction.X > 0)
+	{
+		ActivateCurrentNavigationEntry(true);
+		return true;
+	}
+
+	return false;
 }
 
 bool UGameUIFocusScreenWidgetBase::RequestFocusNextTick(UWidget* Widget)
@@ -548,68 +730,55 @@ bool UGameUIFocusScreenWidgetBase::RequestFocusNextTickInternal(UWidget* Widget,
 		NavigationIndexToApply,
 		bLeaveActivePageOnSuccess ? 1 : 0);
 
-	if (bApplyZone)
+	if (TryApplyPlayerFocus(Widget))
 	{
-		SetCurrentFocusZone(Zone);
-	}
-	if (NavigationIndexToApply != INDEX_NONE)
-	{
-		SetActiveNavigationIndex(NavigationIndexToApply);
-	}
-
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		Widget->SetUserFocus(GetOwningPlayer());
-		Widget->SetKeyboardFocus();
+		FinalizeFocusRequest(Widget, bApplyZone, Zone, NavigationIndexToApply, bLeaveActivePageOnSuccess);
 		UE_LOG(LogGameUIFocus, VeryVerbose,
-			TEXT("GameUIFocusTrace FocusAppliedImmediate Screen=%s Serial=%llu Target=%s HasUserFocus=%d HasKeyboardFocus=%d"),
+			TEXT("GameUIFocusTrace FocusConfirmedImmediate Screen=%s Serial=%llu Target=%s Zone=%s"),
 			*GetNameSafe(this),
 			RequestSerial,
 			*GetNameSafe(Widget),
-			Widget->HasUserFocus(GetOwningPlayer()) ? 1 : 0,
-			Widget->HasKeyboardFocus() ? 1 : 0);
-		RememberFocusedWidget(Widget);
-		if (bLeaveActivePageOnSuccess)
-		{
-			LeaveActivePageFocus();
-		}
+			*FocusZoneToString(Zone));
 		return true;
 	}
 
-	Widget->SetUserFocus(GetOwningPlayer());
-	Widget->SetKeyboardFocus();
-	RememberFocusedWidget(Widget);
-	UE_LOG(LogGameUIFocus, VeryVerbose,
-		TEXT("GameUIFocusTrace FocusAppliedNow Screen=%s Serial=%llu Target=%s Zone=%s HasUserFocus=%d HasKeyboardFocus=%d"),
-		*GetNameSafe(this),
-		RequestSerial,
-		*GetNameSafe(Widget),
-		*FocusZoneToString(CurrentFocusZone),
-		Widget->HasUserFocus(GetOwningPlayer()) ? 1 : 0,
-		Widget->HasKeyboardFocus() ? 1 : 0);
-	if (bLeaveActivePageOnSuccess)
+	UWorld* World = GetWorld();
+	if (!GetOwningPlayer() || !World)
 	{
-		LeaveActivePageFocus();
+		const bool bKeyboardFocused = TryApplyKeyboardFocus(Widget);
+		if (bKeyboardFocused)
+		{
+			FinalizeFocusRequest(Widget, bApplyZone, Zone, NavigationIndexToApply, bLeaveActivePageOnSuccess);
+		}
+		return bKeyboardFocused;
 	}
 
 	World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([WeakThis, FocusWidget, RequestSerial, bApplyZone, Zone, NavigationIndexToApply, bLeaveActivePageOnSuccess]()
 	{
 		UGameUIFocusScreenWidgetBase* FocusScreen = WeakThis.Get();
 		UWidget* FocusTarget = FocusWidget.Get();
-		if (FocusScreen && FocusScreen->FocusRequestSerial == RequestSerial && FocusScreen->IsUsableFocusTarget(FocusTarget))
+		if (FocusScreen
+			&& FocusScreen->FocusRequestSerial == RequestSerial
+			&& FocusScreen->IsRetryTargetValid(FocusTarget, Zone))
 		{
-			FocusTarget->SetUserFocus(FocusScreen->GetOwningPlayer());
-			FocusTarget->SetKeyboardFocus();
+			const bool bFocused = FocusScreen->TryApplyPlayerFocus(FocusTarget)
+				|| FocusScreen->TryApplyKeyboardFocus(FocusTarget);
+			if (bFocused)
+			{
+				FocusScreen->FinalizeFocusRequest(
+					FocusTarget,
+					bApplyZone,
+					Zone,
+					NavigationIndexToApply,
+					bLeaveActivePageOnSuccess);
+			}
+
 			UE_LOG(LogGameUIFocus, VeryVerbose,
-				TEXT("GameUIFocusTrace FocusRefreshedNextTick Screen=%s Serial=%llu Target=%s Zone=%s HasUserFocus=%d HasKeyboardFocus=%d"),
+				TEXT("GameUIFocusTrace FocusRetryCompleted Screen=%s Serial=%llu Target=%s Confirmed=%d"),
 				*GetNameSafe(FocusScreen),
 				RequestSerial,
 				*GetNameSafe(FocusTarget),
-				*FocusZoneToString(FocusScreen->CurrentFocusZone),
-				FocusTarget->HasUserFocus(FocusScreen->GetOwningPlayer()) ? 1 : 0,
-				FocusTarget->HasKeyboardFocus() ? 1 : 0);
-			FocusScreen->RememberFocusedWidget(FocusTarget);
+				bFocused ? 1 : 0);
 		}
 		else
 		{
@@ -623,6 +792,142 @@ bool UGameUIFocusScreenWidgetBase::RequestFocusNextTickInternal(UWidget* Widget,
 				FocusTarget ? 1 : 0);
 		}
 	}));
+
+	return true;
+}
+
+bool UGameUIFocusScreenWidgetBase::TryApplyPlayerFocus(UWidget* Widget) const
+{
+	APlayerController* PlayerController = GetOwningPlayer();
+	if (!Widget || !PlayerController)
+	{
+		return false;
+	}
+
+	Widget->SetUserFocus(PlayerController);
+	return Widget->HasUserFocus(PlayerController);
+}
+
+bool UGameUIFocusScreenWidgetBase::TryApplyKeyboardFocus(UWidget* Widget) const
+{
+	if (!Widget)
+	{
+		return false;
+	}
+
+	Widget->SetKeyboardFocus();
+	return Widget->HasKeyboardFocus();
+}
+
+void UGameUIFocusScreenWidgetBase::FinalizeFocusRequest(
+	UWidget* Widget,
+	const bool bApplyZone,
+	const EGameUIFocusZone Zone,
+	const int32 NavigationIndexToApply,
+	const bool bLeaveActivePageOnSuccess)
+{
+	if (bApplyZone)
+	{
+		SetCurrentFocusZone(Zone);
+	}
+	if (NavigationIndexToApply != INDEX_NONE)
+	{
+		SetActiveNavigationIndex(NavigationIndexToApply);
+	}
+
+	RememberFocusedWidget(Widget);
+	if (bLeaveActivePageOnSuccess)
+	{
+		LeaveActivePageFocus();
+	}
+}
+
+void UGameUIFocusScreenWidgetBase::ClearNavigationEntries()
+{
+	for (const FGameUIFocusNavigationEntry& Entry : NavigationEntries)
+	{
+		if (UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Entry.NavigationWidget))
+		{
+			if (FocusItem->GetOwningNavigationScreen() == this)
+			{
+				FocusItem->SetOwningNavigationScreen(nullptr);
+			}
+		}
+	}
+
+	NavigationEntries.Reset();
+}
+
+void UGameUIFocusScreenWidgetBase::RebuildNavigationEntriesFromBindings()
+{
+	if (NavigationBindings.IsEmpty())
+	{
+		return;
+	}
+
+	ClearNavigationEntries();
+	for (const FGameUIFocusNavigationBinding& Binding : NavigationBindings)
+	{
+		if (Binding.WidgetName.IsNone())
+		{
+			continue;
+		}
+
+		UWidget* NavigationWidget = FindWidgetByNameRecursive(this, Binding.WidgetName);
+		if (!NavigationWidget)
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			UE_LOG(LogGameUIFocus, Warning,
+				TEXT("GameUIFocus screen could not resolve navigation binding. Screen=%s WidgetName=%s PageIndex=%d."),
+				*GetNameSafe(this),
+				*Binding.WidgetName.ToString(),
+				Binding.PageIndex);
+#endif
+			continue;
+		}
+
+		RegisterNavigationEntry(NavigationWidget, Binding.PageIndex);
+	}
+}
+
+void UGameUIFocusScreenWidgetBase::NotifyActivePageDeactivated()
+{
+	UWidget* ActivePage = GetActiveFocusPageWidget();
+	if (!ActivePage)
+	{
+		return;
+	}
+
+	if (ActivePage->GetClass()->ImplementsInterface(UGameUIFocusPageInterface::StaticClass()))
+	{
+		IGameUIFocusPageInterface::Execute_OnPageDeactivated(ActivePage);
+		return;
+	}
+
+	if (UGameUIFocusPageWidgetBase* NativeFocusPage = Cast<UGameUIFocusPageWidgetBase>(ActivePage))
+	{
+		NativeFocusPage->OnPageDeactivated_Implementation();
+	}
+}
+
+bool UGameUIFocusScreenWidgetBase::IsRetryTargetValid(UWidget* Widget, const EGameUIFocusZone Zone) const
+{
+	if (!IsUsableFocusTarget(Widget))
+	{
+		return false;
+	}
+
+	if (Zone == EGameUIFocusZone::Content)
+	{
+		const UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+		const UGameUIFocusPageWidgetBase* ActivePage = Cast<UGameUIFocusPageWidgetBase>(GetActiveFocusPageWidget());
+		return FocusItem && ActivePage && FocusItem->GetOwningFocusPage() == ActivePage;
+	}
+
+	if (Zone == EGameUIFocusZone::Navigation)
+	{
+		return FindNavigationIndexForWidget(Widget) != INDEX_NONE;
+	}
 
 	return true;
 }
@@ -655,9 +960,14 @@ UWidget* UGameUIFocusScreenWidgetBase::GetActiveFocusPageWidget() const
 FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
+	const EUINavigation NavigationDirection = FSlateApplication::IsInitialized()
+		? FSlateApplication::Get().GetNavigationDirectionFromKey(InKeyEvent)
+		: EUINavigation::Invalid;
+	const bool bAcceptAction = GameUIFocusInputKeys::IsAcceptAction(InKeyEvent);
+	const bool bBackAction = GameUIFocusInputKeys::IsBackAction(InKeyEvent);
 	if (IsFocusTraceKey(Key))
 	{
-		UE_LOG(LogGameUIFocus, Warning,
+		UE_LOG(LogGameUIFocus, VeryVerbose,
 			TEXT("GameUIFocusTrace PreviewKey Screen=%s Key=%s Zone=%s ActiveNav=%d ActiveSwitcherWidget=%s ActiveFocusPage=%s Last=%s"),
 			*GetNameSafe(this),
 			*Key.ToString(),
@@ -675,7 +985,7 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 			return FReply::Handled();
 		}
 
-		if (IsUpKey(Key))
+		if (NavigationDirection == EUINavigation::Up)
 		{
 			if (CanProcessNavigationMove(InKeyEvent.IsRepeat()))
 			{
@@ -684,7 +994,7 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 			return FReply::Handled();
 		}
 
-		if (IsDownKey(Key))
+		if (NavigationDirection == EUINavigation::Down)
 		{
 			if (CanProcessNavigationMove(InKeyEvent.IsRepeat()))
 			{
@@ -693,7 +1003,8 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 			return FReply::Handled();
 		}
 
-		if ((IsRightKey(Key) || IsAcceptKey(Key)) && ActivateCurrentNavigationEntry(true))
+		if ((NavigationDirection == EUINavigation::Right || bAcceptAction)
+			&& ActivateCurrentNavigationEntry(true))
 		{
 			return FReply::Handled();
 		}
@@ -705,7 +1016,7 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 			return FReply::Handled();
 		}
 
-		if (IsBackKey(Key) && ReturnToNavigationZone())
+		if (bBackAction && ReturnToNavigationZone())
 		{
 			return FReply::Handled();
 		}
@@ -717,7 +1028,7 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 			return FReply::Handled();
 		}
 
-		if (IsBackKey(Key) && ReturnFromModalZone())
+		if (bBackAction && ReturnFromModalZone())
 		{
 			return FReply::Handled();
 		}
@@ -728,34 +1039,91 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 
 FReply UGameUIFocusScreenWidgetBase::NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent)
 {
+	return ProcessNavigationAnalogInput(InAnalogEvent.GetKey(), InAnalogEvent.GetAnalogValue())
+		? FReply::Handled()
+		: Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
+}
+
+bool UGameUIFocusScreenWidgetBase::ProcessNavigationAnalogInput(const FKey Key, const float Value)
+{
 	if (CurrentFocusZone != EGameUIFocusZone::Navigation)
 	{
-		ResetAnalogNavigationMove();
-		ResetAnalogContentEnter();
-		return Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
+		ResetAnalogNavigation();
+		return false;
 	}
 
-	const FKey Key = InAnalogEvent.GetKey();
-	const float AnalogValue = InAnalogEvent.GetAnalogValue();
-
-	if (Key == EKeys::Gamepad_LeftY)
+	TryMigrateLegacyAnalogConfig();
+	const FGameUIAnalogNavigationResult Result = AnalogNavigationState.ProcessAxis(
+		Key,
+		Value,
+		FPlatformTime::Seconds(),
+		AnalogNavigationConfig,
+		EGameUIAnalogNavigationMode::TwoDimensional);
+	UE_LOG(LogGameUIFocus, VeryVerbose,
+		TEXT("GameUIFocusTrace ScreenAnalogResult Screen=%s Key=%s Value=%.3f Handled=%d Navigate=%d Direction=(%d,%d) Magnitude=%.3f Held=%d DeadZone=%.3f Release=%.3f"),
+		*GetNameSafe(this),
+		*Key.ToString(),
+		Value,
+		Result.bHandled ? 1 : 0,
+		Result.bShouldNavigate ? 1 : 0,
+		Result.Direction.X,
+		Result.Direction.Y,
+		Result.Magnitude,
+		AnalogNavigationState.IsHeld() ? 1 : 0,
+		AnalogNavigationConfig.DeadZone,
+		AnalogNavigationConfig.ReleaseThreshold);
+	if (!Result.bHandled)
 	{
-		const int32 Direction = AnalogValue > 0.0f ? -1 : 1;
-		return HandleAnalogNavigationMove(Direction, FMath::Abs(AnalogValue)) ? FReply::Handled() : FReply::Unhandled();
+		return false;
 	}
 
-	if (Key == EKeys::Gamepad_LeftX)
+	if (!Result.bShouldNavigate)
 	{
-		if (AnalogValue > 0.0f)
+		return true;
+	}
+
+	bool bMoved = false;
+	if (Result.Direction.Y != 0)
+	{
+		bMoved = MoveNavigationFocus(Result.Direction.Y);
+	}
+	else if (Result.Direction.X > 0)
+	{
+		bMoved = EnterContentZone();
+	}
+
+	UWidget* CurrentWidget = GetNavigationWidgetByIndex(ActiveNavigationIndex);
+	if (bMoved)
+	{
+		AnalogNavigationState.NotifyNavigationSucceeded();
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace AnalogAccepted Owner=Screen Screen=%s Widget=%s Direction=(%d,%d) Magnitude=%.3f Repeat=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(CurrentWidget),
+			Result.Direction.X,
+			Result.Direction.Y,
+			Result.Magnitude,
+			Result.bIsRepeat ? 1 : 0);
+	}
+	else
+	{
+		const bool bShouldBroadcastBlocked = AnalogNavigationState.NotifyNavigationBlocked();
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("GameUIFocusTrace AnalogBlocked Owner=Screen Screen=%s Widget=%s Direction=(%d,%d) Magnitude=%.3f Repeat=%d Feedback=%d"),
+			*GetNameSafe(this),
+			*GetNameSafe(CurrentWidget),
+			Result.Direction.X,
+			Result.Direction.Y,
+			Result.Magnitude,
+			Result.bIsRepeat ? 1 : 0,
+			bShouldBroadcastBlocked ? 1 : 0);
+		if (bShouldBroadcastBlocked)
 		{
-			return HandleAnalogContentEnter(AnalogValue) ? FReply::Handled() : FReply::Unhandled();
+			OnNavigationBlocked.Broadcast(CurrentWidget, Result.Direction);
 		}
-
-		ResetAnalogContentEnter();
-		return FMath::Abs(AnalogValue) >= AnalogNavigationReleaseThreshold ? FReply::Handled() : FReply::Unhandled();
 	}
 
-	return Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
+	return true;
 }
 
 bool UGameUIFocusScreenWidgetBase::HandleNavigationZoneKey_Implementation(FKey Key)
@@ -789,6 +1157,13 @@ void UGameUIFocusScreenWidgetBase::SetCurrentFocusZone(EGameUIFocusZone NewZone)
 	}
 
 	const EGameUIFocusZone PreviousZone = CurrentFocusZone;
+	if (UGameUIFocusPageWidgetBase* ActivePage = Cast<UGameUIFocusPageWidgetBase>(GetActiveFocusPageWidget()))
+	{
+		// Blueprint interface overrides are not required to call their native parent, so
+		// reset the stable page state at the owning screen's authoritative zone boundary.
+		ActivePage->ResetAnalogNavigation();
+	}
+	ResetAnalogNavigation();
 	CurrentFocusZone = NewZone;
 	OnFocusZoneChanged.Broadcast(PreviousZone, NewZone);
 	HandleFocusZoneChanged(PreviousZone, NewZone);
@@ -870,6 +1245,11 @@ bool UGameUIFocusScreenWidgetBase::IsUsableFocusTarget(const UWidget* Widget)
 		return false;
 	}
 
+	if (const UUserWidget* UserWidget = Cast<UUserWidget>(Widget); UserWidget && !UserWidget->IsFocusable())
+	{
+		return false;
+	}
+
 	const ESlateVisibility Visibility = Widget->GetVisibility();
 	return Visibility != ESlateVisibility::Collapsed
 		&& Visibility != ESlateVisibility::Hidden;
@@ -925,6 +1305,53 @@ UWidget* UGameUIFocusScreenWidgetBase::FindFocusPageWidget(UWidget* RootWidget)
 	return nullptr;
 }
 
+UWidget* UGameUIFocusScreenWidgetBase::FindWidgetByNameRecursive(UWidget* RootWidget, const FName WidgetName)
+{
+	if (!RootWidget || WidgetName.IsNone())
+	{
+		return nullptr;
+	}
+
+	if (RootWidget->GetFName() == WidgetName)
+	{
+		return RootWidget;
+	}
+
+	if (UPanelWidget* Panel = Cast<UPanelWidget>(RootWidget))
+	{
+		for (int32 ChildIndex = 0; ChildIndex < Panel->GetChildrenCount(); ++ChildIndex)
+		{
+			if (UWidget* Match = FindWidgetByNameRecursive(Panel->GetChildAt(ChildIndex), WidgetName))
+			{
+				return Match;
+			}
+		}
+	}
+
+	if (UUserWidget* UserWidget = Cast<UUserWidget>(RootWidget))
+	{
+		if (UWidget* NamedWidget = UserWidget->GetWidgetFromName(WidgetName))
+		{
+			return NamedWidget;
+		}
+
+		if (UWidgetTree* Tree = UserWidget->WidgetTree)
+		{
+			UWidget* Match = nullptr;
+			Tree->ForEachWidget([&Match, WidgetName](UWidget* Widget)
+			{
+				if (!Match)
+				{
+					Match = FindWidgetByNameRecursive(Widget, WidgetName);
+				}
+			});
+			return Match;
+		}
+	}
+
+	return nullptr;
+}
+
 bool UGameUIFocusScreenWidgetBase::CanProcessNavigationMove(bool bIsRepeat)
 {
 	const double CurrentTimeSeconds = FPlatformTime::Seconds();
@@ -937,77 +1364,39 @@ bool UGameUIFocusScreenWidgetBase::CanProcessNavigationMove(bool bIsRepeat)
 	return true;
 }
 
-bool UGameUIFocusScreenWidgetBase::HandleAnalogNavigationMove(int32 Direction, float Magnitude)
+void UGameUIFocusScreenWidgetBase::ResetAnalogNavigation()
 {
-	if (Direction == 0 || Magnitude < AnalogNavigationReleaseThreshold)
-	{
-		ResetAnalogNavigationMove();
-		return false;
-	}
-
-	if (Magnitude < AnalogNavigationDeadZone)
-	{
-		return true;
-	}
-
-	const double CurrentTimeSeconds = FPlatformTime::Seconds();
-	if (!bAnalogNavigationHeld || LastAnalogNavigationDirection != Direction)
-	{
-		bAnalogNavigationHeld = true;
-		bAnalogNavigationRepeatActive = false;
-		LastAnalogNavigationDirection = Direction;
-		LastAnalogNavigationMoveTimeSeconds = CurrentTimeSeconds;
-		MoveNavigationFocus(Direction);
-		return true;
-	}
-
-	const double RepeatDelay = bAnalogNavigationRepeatActive
-		? static_cast<double>(AnalogRepeatInterval)
-		: static_cast<double>(AnalogInitialRepeatDelay);
-
-	if (CurrentTimeSeconds - LastAnalogNavigationMoveTimeSeconds >= RepeatDelay)
-	{
-		bAnalogNavigationRepeatActive = true;
-		LastAnalogNavigationMoveTimeSeconds = CurrentTimeSeconds;
-		MoveNavigationFocus(Direction);
-	}
-
-	return true;
+	AnalogNavigationState.Reset();
 }
 
-bool UGameUIFocusScreenWidgetBase::HandleAnalogContentEnter(float Magnitude)
+void UGameUIFocusScreenWidgetBase::TryMigrateLegacyAnalogConfig()
 {
-	if (Magnitude < AnalogNavigationReleaseThreshold)
+	if (bMigratedLegacyAnalogConfig)
 	{
-		ResetAnalogContentEnter();
-		return false;
+		return;
 	}
 
-	if (Magnitude < AnalogNavigationDeadZone)
+	constexpr float LegacyDeadZone = 0.55f;
+	constexpr float LegacyReleaseThreshold = 0.35f;
+	constexpr float LegacyInitialRepeatDelay = 0.30f;
+	constexpr float LegacyRepeatInterval = 0.11f;
+	const bool bCustomized = !FMath::IsNearlyEqual(AnalogNavigationDeadZone, LegacyDeadZone)
+		|| !FMath::IsNearlyEqual(AnalogNavigationReleaseThreshold, LegacyReleaseThreshold)
+		|| !FMath::IsNearlyEqual(AnalogInitialRepeatDelay, LegacyInitialRepeatDelay)
+		|| !FMath::IsNearlyEqual(AnalogRepeatInterval, LegacyRepeatInterval);
+
+	if (bCustomized)
 	{
-		return true;
+		AnalogNavigationConfig.DeadZone = AnalogNavigationDeadZone;
+		AnalogNavigationConfig.ReleaseThreshold = AnalogNavigationReleaseThreshold;
+		AnalogNavigationConfig.InitialRepeatDelay = AnalogInitialRepeatDelay;
+		AnalogNavigationConfig.RepeatInterval = AnalogRepeatInterval;
+		UE_LOG(LogGameUIFocus, VeryVerbose,
+			TEXT("Migrated customized screen-level analog navigation values at runtime. Screen=%s. Move these values to AnalogNavigationConfig."),
+			*GetNameSafe(this));
 	}
 
-	if (!bAnalogContentEnterHeld)
-	{
-		bAnalogContentEnterHeld = true;
-		EnterContentZone();
-	}
-
-	return true;
-}
-
-void UGameUIFocusScreenWidgetBase::ResetAnalogNavigationMove()
-{
-	bAnalogNavigationHeld = false;
-	bAnalogNavigationRepeatActive = false;
-	LastAnalogNavigationDirection = 0;
-	LastAnalogNavigationMoveTimeSeconds = -1000.0;
-}
-
-void UGameUIFocusScreenWidgetBase::ResetAnalogContentEnter()
-{
-	bAnalogContentEnterHeld = false;
+	bMigratedLegacyAnalogConfig = true;
 }
 
 void UGameUIFocusScreenWidgetBase::WarnIfWeakFocusTarget(const UWidget* Widget, EGameUIFocusZone Zone) const
@@ -1033,36 +1422,4 @@ void UGameUIFocusScreenWidgetBase::LogContentFocusFailure(const TCHAR* Reason, c
 		*GetNameSafe(FocusWidgetSwitcher),
 		*GetNameSafe(GetActivePageWidget()),
 		*GetNameSafe(ContextWidget));
-}
-
-bool UGameUIFocusScreenWidgetBase::IsRightKey(const FKey& Key)
-{
-	return Key == EKeys::Right
-		|| Key == EKeys::Gamepad_DPad_Right;
-}
-
-bool UGameUIFocusScreenWidgetBase::IsAcceptKey(const FKey& Key)
-{
-	return Key == EKeys::Enter
-		|| Key == EKeys::SpaceBar
-		|| Key == GameUIFocusInputKeys::GetVirtualAcceptKey()
-		|| Key == EKeys::Gamepad_FaceButton_Bottom;
-}
-
-bool UGameUIFocusScreenWidgetBase::IsUpKey(const FKey& Key)
-{
-	return Key == EKeys::Up
-		|| Key == EKeys::Gamepad_DPad_Up;
-}
-
-bool UGameUIFocusScreenWidgetBase::IsDownKey(const FKey& Key)
-{
-	return Key == EKeys::Down
-		|| Key == EKeys::Gamepad_DPad_Down;
-}
-
-bool UGameUIFocusScreenWidgetBase::IsBackKey(const FKey& Key)
-{
-	return Key == EKeys::Escape
-		|| Key == EKeys::Gamepad_FaceButton_Right;
 }
