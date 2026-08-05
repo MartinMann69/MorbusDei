@@ -12,6 +12,8 @@
 
 TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveVoiceLineZone = nullptr;
 TWeakObjectPtr<AMD_AudioZone> AMD_AudioZone::ActiveBackgroundMusicZone = nullptr;
+FMDVoiceLinePlaybackChanged AMD_AudioZone::OnVoiceLinePlaybackChanged;
+bool AMD_AudioZone::bLastBroadcastVoiceLinePlaying = false;
 
 AMD_AudioZone::AMD_AudioZone()
 {
@@ -66,6 +68,9 @@ void AMD_AudioZone::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearActiveVoiceLineIfNeeded();
 	ClearActiveBackgroundMusicIfNeeded();
+	
+	BroadcastVoiceLinePlaybackState();
+	
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -102,6 +107,8 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		AudioComponent->Play();
 	}
+	
+	BroadcastVoiceLinePlaybackState();
 
 	SpawnTriggeredNiagaraEffect();
 	
@@ -201,6 +208,27 @@ bool AMD_AudioZone::TrySkipActiveVoiceLine()
 	return true;
 }
 
+bool AMD_AudioZone::IsAnyVoiceLinePlaying()
+{
+	AMD_AudioZone* ActiveZone = ActiveVoiceLineZone.Get();
+	
+
+	return IsValid(ActiveZone) && ActiveZone->IsZoneSoundPlaying();
+}
+
+void AMD_AudioZone::BroadcastVoiceLinePlaybackState()
+{
+	const bool bIsPlaying = IsAnyVoiceLinePlaying();
+
+	if (bLastBroadcastVoiceLinePlaying == bIsPlaying)
+	{
+		return;
+	}
+
+	bLastBroadcastVoiceLinePlaying = bIsPlaying;
+	OnVoiceLinePlaybackChanged.Broadcast(bIsPlaying);
+}
+
 void AMD_AudioZone::HandleAudioFinished()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Destroying audio component"));
@@ -215,6 +243,8 @@ void AMD_AudioZone::HandleAudioFinished()
 	
 	ClearActiveVoiceLineIfNeeded();
 	ClearActiveBackgroundMusicIfNeeded();
+	
+	BroadcastVoiceLinePlaybackState();
 
 	if (bShouldDestroy)
 	{

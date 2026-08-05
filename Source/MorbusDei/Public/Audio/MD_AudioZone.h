@@ -16,6 +16,8 @@ class USoundBase;
 class UPrimitiveComponent;
 class UNiagaraSystem;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FMDVoiceLinePlaybackChanged, bool);
+
 UENUM(BlueprintType)
 enum class EMD_AudioZoneNiagaraSpawnTarget : uint8
 {
@@ -45,6 +47,9 @@ public:
 	bool IsZoneSoundPlaying() const;
 	
 	static bool TrySkipActiveVoiceLine();
+	static bool IsAnyVoiceLinePlaying();
+	
+	static FMDVoiceLinePlaybackChanged OnVoiceLinePlaybackChanged;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Audio|Components")
@@ -146,7 +151,6 @@ private:
 	void UpdateTriggerState();
 	void StopCompetingVoiceLine();
 	void StopCompetingBackgroundMusic();
-	void StopVoiceLineImmediately();
 	void ClearActiveVoiceLineIfNeeded();
 	void ClearActiveBackgroundMusicIfNeeded();
 	void SpawnTriggeredNiagaraEffect() const;
@@ -164,4 +168,6 @@ private:
 	static TWeakObjectPtr<AMD_AudioZone> ActiveVoiceLineZone;
 	static TWeakObjectPtr<AMD_AudioZone> ActiveBackgroundMusicZone;
 
+	static void BroadcastVoiceLinePlaybackState();
+	static bool bLastBroadcastVoiceLinePlaying;
 };
