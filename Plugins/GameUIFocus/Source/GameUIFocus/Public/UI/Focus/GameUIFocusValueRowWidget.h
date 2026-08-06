@@ -155,6 +155,9 @@ public:
 	int32 GetOptionIndexForNumericValue(float Value) const;
 
 protected:
+	virtual void NativeDestruct() override;
+	virtual void NativeOnAddedToFocusPath(const FFocusEvent& InFocusEvent) override;
+	virtual void NativeOnRemovedFromFocusPath(const FFocusEvent& InFocusEvent) override;
 	virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
@@ -183,6 +186,8 @@ private:
 	void RequestDisabledInteraction();
 	bool HandleAnalogOptionInput(int32 Direction, float Magnitude, bool bSelectionOnly, double& LastInputTimeSeconds, int32& LastDirection, bool& bInputHeld, bool& bRepeatActive);
 	void ResetAnalogOptionInput(double& LastInputTimeSeconds, int32& LastDirection, bool& bInputHeld, bool& bRepeatActive);
+	void ResetHorizontalAnalogInput();
+	void ResetHorizontalAnalogReleaseGate();
 	void SetOptionListExpanded(bool bExpanded);
 	void RefreshBoundTextWidgets();
 	void BuildNumericOptions(int32 FractionalDigits, FText Suffix);
@@ -258,6 +263,7 @@ private:
 	int32 LastHorizontalAnalogDirection = 0;
 	bool bHorizontalAnalogInputHeld = false;
 	bool bHorizontalAnalogRepeatActive = false;
+	FGameUIAnalogReleaseGate HorizontalAnalogReleaseGate;
 	double LastVerticalAnalogInputTimeSeconds = -1000.0;
 	int32 LastVerticalAnalogDirection = 0;
 	bool bVerticalAnalogInputHeld = false;
