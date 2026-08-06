@@ -1,11 +1,13 @@
 #include "UI/Focus/GameUIFocusValueRowWidget.h"
 
 #include "Components/TextBlock.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformTime.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
 #include "Internationalization/Text.h"
 #include "UI/Focus/GameUIFocusInputKeys.h"
+#include "UI/Focus/GameUIFocusPageWidgetBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameUIFocusValueRow, Log, All);
 
@@ -13,6 +15,36 @@ UGameUIFocusValueRowWidget::UGameUIFocusValueRowWidget(const FObjectInitializer&
 	: Super(ObjectInitializer)
 {
 	SetIsFocusable(true);
+}
+
+void UGameUIFocusValueRowWidget::NativeDestruct()
+{
+	ResetHorizontalAnalogReleaseGate();
+	Super::NativeDestruct();
+}
+
+void UGameUIFocusValueRowWidget::NativeOnAddedToFocusPath(const FFocusEvent& InFocusEvent)
+{
+	Super::NativeOnAddedToFocusPath(InFocusEvent);
+	ResetHorizontalAnalogInput();
+
+	const UGameUIFocusPageWidgetBase* FocusPage = GetOwningFocusPage();
+	HorizontalAnalogReleaseGate.Arm(
+		FocusPage && FocusPage->IsHorizontalAnalogActuated(AnalogInputReleaseThreshold));
+
+	if (HorizontalAnalogReleaseGate.IsAwaitingRelease())
+	{
+		UE_LOG(LogGameUIFocusValueRow, VeryVerbose,
+			TEXT("Value row waiting for horizontal analog release. Row=%s Threshold=%.3f"),
+			*GetNameSafe(this),
+			AnalogInputReleaseThreshold);
+	}
+}
+
+void UGameUIFocusValueRowWidget::NativeOnRemovedFromFocusPath(const FFocusEvent& InFocusEvent)
+{
+	ResetHorizontalAnalogReleaseGate();
+	Super::NativeOnRemovedFromFocusPath(InFocusEvent);
 }
 
 void UGameUIFocusValueRowWidget::InitializeValueRow(
@@ -197,6 +229,28 @@ FReply UGameUIFocusValueRowWidget::NativeOnAnalogValueChanged(const FGeometry& I
 
 	if (Key == EKeys::Gamepad_LeftX)
 	{
+		if (UGameUIFocusPageWidgetBase* FocusPage = GetOwningFocusPage())
+		{
+			FocusPage->UpdateHorizontalAnalogSample(AnalogValue);
+		}
+
+		const bool bWasAwaitingRelease = HorizontalAnalogReleaseGate.IsAwaitingRelease();
+		if (HorizontalAnalogReleaseGate.Process(AnalogValue, AnalogInputReleaseThreshold))
+		{
+			ResetHorizontalAnalogInput();
+			if (bWasAwaitingRelease && !HorizontalAnalogReleaseGate.IsAwaitingRelease())
+			{
+				UE_LOG(LogGameUIFocusValueRow, VeryVerbose,
+					TEXT("Value row horizontal analog release confirmed. Row=%s Value=%.3f"),
+					*GetNameSafe(this),
+					AnalogValue);
+			}
+
+			// The release sample only unlocks the row. A later, deliberate stick
+			// gesture is required to change its value.
+			return FReply::Handled();
+		}
+
 		const int32 Direction = AnalogValue > 0.0f ? 1 : -1;
 		return HandleAnalogOptionInput(
 			Direction,
@@ -230,9 +284,11 @@ FReply UGameUIFocusValueRowWidget::NativeOnAnalogValueChanged(const FGeometry& I
 
 FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEvent)
 {
-	const FKey Key = KeyEvent.GetKey();
+	const EUINavigation NavigationDirection = FSlateApplication::IsInitialized()
+		? FSlateApplication::Get().GetNavigationDirectionFromKey(KeyEvent)
+		: EUINavigation::Invalid;
 
-	if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
+	if (NavigationDirection == EUINavigation::Left)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -252,7 +308,7 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (Key == EKeys::Right || Key == EKeys::Gamepad_DPad_Right)
+	if (NavigationDirection == EUINavigation::Right)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -272,7 +328,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == GameUIFocusInputKeys::GetVirtualAcceptKey() || Key == EKeys::Gamepad_FaceButton_Bottom)
+	const bool bAcceptAction = GameUIFocusInputKeys::IsAcceptAction(KeyEvent);
+	if (bAcceptAction)
 	{
 		if (!CanInteractWithRow())
 		{
@@ -296,12 +353,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	const bool bMoveUp = Key == EKeys::Up
-		|| Key == EKeys::Gamepad_DPad_Up
-		|| Key == EKeys::Gamepad_LeftStick_Up;
-	const bool bMoveDown = Key == EKeys::Down
-		|| Key == EKeys::Gamepad_DPad_Down
-		|| Key == EKeys::Gamepad_LeftStick_Down;
+	const bool bMoveUp = NavigationDirection == EUINavigation::Up;
+	const bool bMoveDown = NavigationDirection == EUINavigation::Down;
 
 	if (bMoveUp)
 	{
@@ -335,7 +388,8 @@ FReply UGameUIFocusValueRowWidget::HandleDirectionalInput(const FKeyEvent& KeyEv
 		return FReply::Handled();
 	}
 
-	if (bIsOptionListExpanded && (Key == EKeys::Escape || Key == EKeys::Gamepad_FaceButton_Right))
+	const bool bBackAction = GameUIFocusInputKeys::IsBackAction(KeyEvent);
+	if (bIsOptionListExpanded && bBackAction)
 	{
 		SetOptionListExpanded(false);
 		return FReply::Handled();
@@ -517,6 +571,21 @@ void UGameUIFocusValueRowWidget::ResetAnalogOptionInput(double& LastInputTimeSec
 	bRepeatActive = false;
 	LastDirection = 0;
 	LastInputTimeSeconds = -1000.0;
+}
+
+void UGameUIFocusValueRowWidget::ResetHorizontalAnalogInput()
+{
+	ResetAnalogOptionInput(
+		LastHorizontalAnalogInputTimeSeconds,
+		LastHorizontalAnalogDirection,
+		bHorizontalAnalogInputHeld,
+		bHorizontalAnalogRepeatActive);
+}
+
+void UGameUIFocusValueRowWidget::ResetHorizontalAnalogReleaseGate()
+{
+	HorizontalAnalogReleaseGate.Reset();
+	ResetHorizontalAnalogInput();
 }
 
 void UGameUIFocusValueRowWidget::StepOptionIndex(int32 Direction)

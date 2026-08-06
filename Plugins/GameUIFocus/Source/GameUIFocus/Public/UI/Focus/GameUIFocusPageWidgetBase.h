@@ -4,12 +4,20 @@
 #include "Blueprint/UserWidget.h"
 #include "GameplayTagContainer.h"
 #include "UI/Focus/GameUIFocusPageInterface.h"
+#include "UI/Focus/GameUIFocusTypes.h"
 #include "GameUIFocusPageWidgetBase.generated.h"
 
 class UGameUIFocusItemWidgetBase;
 class UGameUIFocusScreenWidgetBase;
 class UScrollBox;
 class UWidget;
+
+enum class EGameUIFocusNavigationResult : uint8
+{
+	Unhandled,
+	Blocked,
+	Moved
+};
 
 UCLASS(BlueprintType, Blueprintable)
 class GAMEUIFOCUS_API UGameUIFocusPageWidgetBase : public UUserWidget, public IGameUIFocusPageInterface
@@ -64,6 +72,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	void SetFocusScrollBox(UScrollBox* InFocusScrollBox);
 
+	bool HandleFocusItemAnalogInput(UGameUIFocusItemWidgetBase* CurrentItem, FKey Key, float Value);
+	bool HandleFocusItemDigitalInput(UGameUIFocusItemWidgetBase* CurrentItem, FIntPoint Direction);
+	void ResetAnalogNavigation();
+	void UpdateHorizontalAnalogSample(float Value);
+	void ResetHorizontalAnalogSample();
+	bool IsHorizontalAnalogActuated(float ReleaseThreshold) const;
+
+	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
+	FGameUIFocusNavigationBlocked OnNavigationBlocked;
+
 	virtual void OnPageActivated_Implementation() override;
 	virtual void OnPageDeactivated_Implementation() override;
 	virtual bool EnterPageFocus_Implementation() override;
@@ -74,6 +92,8 @@ public:
 
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
+	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	void HandleFocusItemFocused(UWidget* Widget);
@@ -93,12 +113,27 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	bool bAutoRegisterFocusItemsOnConstruct = true;
 
+	/** Page-level analog navigation settings shared by every registered focus item. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Analog", meta = (ShowOnlyInnerProperties))
+	FGameUIAnalogNavigationConfig AnalogNavigationConfig;
+
+	/** Restrict ordinary lists to Vertical to reject horizontal stick drift explicitly. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Analog")
+	EGameUIAnalogNavigationMode AnalogNavigationMode = EGameUIAnalogNavigationMode::TwoDimensional;
+
 private:
 	void PruneInvalidRegisteredFocusItems();
+	bool IsRegisteredFocusItem(const UGameUIFocusItemWidgetBase* Item) const;
+	EGameUIFocusNavigationResult NavigateFromItem(UGameUIFocusItemWidgetBase* CurrentItem, FIntPoint Direction);
 	bool FocusItemInternal(UGameUIFocusItemWidgetBase* Target);
 	UGameUIFocusItemWidgetBase* FindBestGridTarget(UGameUIFocusItemWidgetBase* CurrentItem, FIntPoint Direction) const;
 	static bool IsUsableFocusTarget(const UWidget* Widget);
+	void TryMigrateLegacyAnalogConfig(const UGameUIFocusItemWidgetBase* Item);
 
 	UPROPERTY(Transient)
 	TArray<TWeakObjectPtr<UGameUIFocusItemWidgetBase>> RegisteredFocusItems;
+
+	FGameUIAnalogNavigationState AnalogNavigationState;
+	float HorizontalAnalogSample = 0.0f;
+	bool bMigratedLegacyAnalogConfig = false;
 };
