@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "GameplayTagContainer.h"
 #include "InputCoreTypes.h"
+#include "UI/Focus/GameUIFocusTypes.h"
 #include "GameUIFocusItemWidgetBase.generated.h"
 
 class UGameUIFocusPageWidgetBase;
@@ -31,6 +32,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
 	UGameUIFocusPageWidgetBase* GetOwningFocusPage() const { return OwningFocusPage.Get(); }
+
+	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
+	UGameUIFocusScreenWidgetBase* GetOwningNavigationScreen() const { return OwningNavigationScreen.Get(); }
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	void NotifyFocused();
@@ -73,8 +77,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
 	FIntPoint GetFocusGridPosition() const { return FocusGridPosition; }
 
+	/** Transitional C++ migration hook for Blueprints that customized the former item-level tuning. */
+	bool TryGetCustomizedLegacyAnalogNavigationConfig(FGameUIAnalogNavigationConfig& OutConfig) const;
+	FGameplayTag GetFocusOverrideIdentifier(FIntPoint Direction) const;
+
+	/** Called by the owning screen to suppress stale hover while a gamepad is active. */
+	void SetPointerInputActive(bool bActive);
+
 protected:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 	virtual void NativeOnAddedToFocusPath(const FFocusEvent& InFocusEvent) override;
 	virtual void NativeOnRemovedFromFocusPath(const FFocusEvent& InFocusEvent) override;
 	virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
@@ -82,6 +94,8 @@ protected:
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual FReply NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
@@ -95,6 +109,8 @@ protected:
 
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
 	bool IsInteractionHighlighted() const { return bIsInteractionHighlighted; }
+
+	bool RequestInteractionFocus();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	bool bReturnToNavigationOnBack = true;
@@ -118,16 +134,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	FGameplayTag DownFocusOverrideIdentifier;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", ClampMax = "1.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig on the owning focus page."))
 	float FocusItemAnalogNavigationDeadZone = 0.55f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", ClampMax = "1.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig on the owning focus page."))
 	float FocusItemAnalogNavigationReleaseThreshold = 0.35f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig on the owning focus page."))
 	float FocusItemAnalogInitialRepeatDelay = 0.30f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog", meta = (ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus|Analog|Deprecated", meta = (ClampMin = "0.0", DeprecatedProperty, DeprecationMessage = "Configure AnalogNavigationConfig on the owning focus page."))
 	float FocusItemAnalogRepeatInterval = 0.11f;
 
 	UPROPERTY(Transient, BlueprintReadOnly, Category = "Game UI|Focus")
@@ -141,14 +157,8 @@ private:
 	void SetHovered(bool bInIsHovered);
 	void UpdateInteractionHighlight();
 	bool TriggerFirstChildButtonClick();
-	bool HandleAnalogNavigationMove(FIntPoint Direction, float Magnitude);
-	void ResetAnalogNavigationMove();
-
+	static bool IsAcceptAction(const FKeyEvent& KeyEvent);
 	static bool IsBackKey(const FKey& Key);
-	static bool IsLeftKey(const FKey& Key);
-	static bool IsRightKey(const FKey& Key);
-	static bool IsUpKey(const FKey& Key);
-	static bool IsDownKey(const FKey& Key);
 	static bool IsUsableFocusTarget(const UWidget* Widget);
 
 	UPROPERTY(Transient)
@@ -158,10 +168,16 @@ private:
 	bool bIsHovered = false;
 
 	UPROPERTY(Transient)
+	bool bPointerInputActive = true;
+
+	UPROPERTY(Transient)
 	bool bIsInteractionHighlighted = false;
 
 	UPROPERTY(Transient)
 	bool bPointerPressed = false;
+
+	UPROPERTY(Transient)
+	bool bAcceptPressed = false;
 
 	UPROPERTY(Transient)
 	FIntPoint FocusGridPosition = FIntPoint::ZeroValue;
@@ -169,8 +185,6 @@ private:
 	UPROPERTY(Transient)
 	bool bHasFocusGridPosition = false;
 
-	double LastAnalogNavigationMoveTimeSeconds = -1000.0;
-	FIntPoint LastAnalogNavigationDirection = FIntPoint::ZeroValue;
-	bool bAnalogNavigationHeld = false;
-	bool bAnalogNavigationRepeatActive = false;
+	FDelegateHandle PointerInputStateChangedHandle;
+
 };
