@@ -148,6 +148,10 @@ void UGameUIFocusActionRowWidget::HandleFocusItemActivated_Implementation()
 void UGameUIFocusActionRowWidget::OnInteractionHighlightChanged_Implementation(const bool bHighlighted)
 {
 	Super::OnInteractionHighlightChanged_Implementation(bHighlighted);
+	if (bHighlighted && HighlightSound)
+	{
+		UGameplayStatics::PlaySound2D(this, HighlightSound);
+	}
 	if (Border_FocusFrame)
 	{
 		Border_FocusFrame->SetRenderOpacity(bHighlighted ? 1.0f : 0.0f);

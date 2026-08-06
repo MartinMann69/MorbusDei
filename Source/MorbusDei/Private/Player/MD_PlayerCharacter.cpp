@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Player/MD_PlayerCharacter.h"
+#include "Input/MD_InputDeviceSubsystem.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
@@ -166,6 +167,9 @@ void AMD_PlayerCharacter::ToggleEscapeMenu() //! Should later be moved in to "Pl
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 
 		PC->SetInputMode(InputMode);
-		PC->bShowMouseCursor = true;
+		const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
+			: nullptr;
+		PC->bShowMouseCursor = !InputDeviceSubsystem || !InputDeviceSubsystem->IsUsingGamepad();
 	}
 }

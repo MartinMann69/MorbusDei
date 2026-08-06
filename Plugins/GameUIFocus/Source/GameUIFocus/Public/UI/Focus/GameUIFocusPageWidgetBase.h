@@ -75,6 +75,9 @@ public:
 	bool HandleFocusItemAnalogInput(UGameUIFocusItemWidgetBase* CurrentItem, FKey Key, float Value);
 	bool HandleFocusItemDigitalInput(UGameUIFocusItemWidgetBase* CurrentItem, FIntPoint Direction);
 	void ResetAnalogNavigation();
+	void UpdateHorizontalAnalogSample(float Value);
+	void ResetHorizontalAnalogSample();
+	bool IsHorizontalAnalogActuated(float ReleaseThreshold) const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
 	FGameUIFocusNavigationBlocked OnNavigationBlocked;
@@ -90,6 +93,7 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	void HandleFocusItemFocused(UWidget* Widget);
@@ -130,5 +134,6 @@ private:
 	TArray<TWeakObjectPtr<UGameUIFocusItemWidgetBase>> RegisteredFocusItems;
 
 	FGameUIAnalogNavigationState AnalogNavigationState;
+	float HorizontalAnalogSample = 0.0f;
 	bool bMigratedLegacyAnalogConfig = false;
 };

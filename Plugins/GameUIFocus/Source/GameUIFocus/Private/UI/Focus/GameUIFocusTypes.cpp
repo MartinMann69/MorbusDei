@@ -2,6 +2,31 @@
 
 #include "InputCoreTypes.h"
 
+void FGameUIAnalogReleaseGate::Arm(const bool bShouldWaitForRelease)
+{
+	bAwaitingRelease = bShouldWaitForRelease;
+}
+
+bool FGameUIAnalogReleaseGate::Process(const float AnalogValue, const float ReleaseThreshold)
+{
+	if (!bAwaitingRelease)
+	{
+		return false;
+	}
+
+	if (FMath::Abs(AnalogValue) <= FMath::Clamp(ReleaseThreshold, 0.0f, 1.0f))
+	{
+		bAwaitingRelease = false;
+	}
+
+	return true;
+}
+
+void FGameUIAnalogReleaseGate::Reset()
+{
+	bAwaitingRelease = false;
+}
+
 FGameUIAnalogNavigationResult FGameUIAnalogNavigationState::ProcessAxis(
 	const FKey Key,
 	const float Value,

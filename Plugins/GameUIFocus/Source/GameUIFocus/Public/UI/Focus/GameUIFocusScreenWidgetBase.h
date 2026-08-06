@@ -163,11 +163,23 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus")
 	UWidget* GetActivePageWidget() const;
 
+	/** Switches UI feedback to gamepad navigation and hides stale pointer hover. */
+	void NotifyGamepadInput(float InputStrength = 1.0f);
+
+	/** Switches UI feedback back to pointer interaction. */
+	void NotifyPointerInput();
+
+	UFUNCTION(BlueprintPure, Category = "Game UI|Focus|Input")
+	bool IsPointerInputActive() const { return bPointerInputActive; }
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 	virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent) override;
+	virtual FReply NativeOnPreviewMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply NativeOnMouseWheel(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	bool HandleNavigationZoneKey(FKey Key);
@@ -205,6 +217,18 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI|Focus")
 	float NavigationRepeatDelay = 0.18f;
+
+	/** Hides the hardware cursor while gamepad input is the active UI device. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Input")
+	bool bManageMouseCursorForInputDevice = true;
+
+	/** Ignores tiny mouse deltas caused by cursor initialization or platform jitter. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Input", meta = (ClampMin = "0.0"))
+	float MouseMoveActivationThreshold = 0.5f;
+
+	/** Ignores resting-stick noise when deciding that the gamepad became active. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Input", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float GamepadActivationThreshold = 0.15f;
 
 	/** Shared tuning for navigation entries and the rightward left-stick gesture entering content. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Analog", meta = (ShowOnlyInnerProperties))
@@ -253,6 +277,11 @@ private:
 	bool CanProcessNavigationMove(bool bIsRepeat);
 	void ResetAnalogNavigation();
 	void TryMigrateLegacyAnalogConfig();
+	void SetPointerInputActive(bool bActive);
+	void RefreshPointerInteractionState();
+	void HandleGlobalPointerInputStateChanged(bool bActive);
+	void ApplyMouseCursorVisibility() const;
+	void SchedulePointerInputStateReapply();
 	void WarnIfWeakFocusTarget(const UWidget* Widget, EGameUIFocusZone Zone) const;
 	void LogContentFocusFailure(const TCHAR* Reason, const UWidget* ContextWidget = nullptr) const;
 	static bool IsUsableFocusTarget(const UWidget* Widget);
@@ -272,4 +301,7 @@ private:
 	double LastNavigationMoveTimeSeconds = -1000.0;
 	FGameUIAnalogNavigationState AnalogNavigationState;
 	bool bMigratedLegacyAnalogConfig = false;
+	bool bPointerInputActive = true;
+	FDelegateHandle PointerInputStateChangedHandle;
+	uint64 PointerInputReapplySerial = 0;
 };

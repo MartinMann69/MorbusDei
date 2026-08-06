@@ -81,6 +81,9 @@ public:
 	bool TryGetCustomizedLegacyAnalogNavigationConfig(FGameUIAnalogNavigationConfig& OutConfig) const;
 	FGameplayTag GetFocusOverrideIdentifier(FIntPoint Direction) const;
 
+	/** Called by the owning screen to suppress stale hover while a gamepad is active. */
+	void SetPointerInputActive(bool bActive);
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
@@ -165,6 +168,9 @@ private:
 	bool bIsHovered = false;
 
 	UPROPERTY(Transient)
+	bool bPointerInputActive = true;
+
+	UPROPERTY(Transient)
 	bool bIsInteractionHighlighted = false;
 
 	UPROPERTY(Transient)
@@ -178,5 +184,7 @@ private:
 
 	UPROPERTY(Transient)
 	bool bHasFocusGridPosition = false;
+
+	FDelegateHandle PointerInputStateChangedHandle;
 
 };

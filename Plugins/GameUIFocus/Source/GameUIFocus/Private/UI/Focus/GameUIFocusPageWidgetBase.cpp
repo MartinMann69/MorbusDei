@@ -16,6 +16,7 @@ void UGameUIFocusPageWidgetBase::NativeConstruct()
 {
 	Super::NativeConstruct();
 	ResetAnalogNavigation();
+	ResetHorizontalAnalogSample();
 
 	if (bAutoRegisterFocusItemsOnConstruct)
 	{
@@ -26,7 +27,34 @@ void UGameUIFocusPageWidgetBase::NativeConstruct()
 void UGameUIFocusPageWidgetBase::NativeDestruct()
 {
 	ResetAnalogNavigation();
+	ResetHorizontalAnalogSample();
 	Super::NativeDestruct();
+}
+
+FReply UGameUIFocusPageWidgetBase::NativeOnAnalogValueChanged(
+	const FGeometry& InGeometry,
+	const FAnalogInputEvent& InAnalogEvent)
+{
+	// Usually the focused GameUIFocus item owns this event. A modal can, however,
+	// focus a nested Slate button (or another child) directly. In that case the
+	// unhandled event bubbles to the page and must be claimed here before it
+	// reaches the menu screen behind the modal.
+	UGameUIFocusItemWidgetBase* CurrentItem = Cast<UGameUIFocusItemWidgetBase>(LastFocusWidget.Get());
+	if (!IsUsableFocusTarget(CurrentItem) || !IsRegisteredFocusItem(CurrentItem))
+	{
+		CurrentItem = Cast<UGameUIFocusItemWidgetBase>(GetBestFocusTarget());
+	}
+
+	if (CurrentItem
+		&& HandleFocusItemAnalogInput(
+			CurrentItem,
+			InAnalogEvent.GetKey(),
+			InAnalogEvent.GetAnalogValue()))
+	{
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
 }
 
 void UGameUIFocusPageWidgetBase::RegisterFocusItem(UGameUIFocusItemWidgetBase* Item)
@@ -64,6 +92,10 @@ void UGameUIFocusPageWidgetBase::RegisterFocusItem(UGameUIFocusItemWidgetBase* I
 
 	TryMigrateLegacyAnalogConfig(Item);
 	Item->SetOwningFocusPage(this);
+	if (OwningFocusScreen)
+	{
+		Item->SetPointerInputActive(OwningFocusScreen->IsPointerInputActive());
+	}
 	RegisteredFocusItems.AddUnique(TWeakObjectPtr<UGameUIFocusItemWidgetBase>(Item));
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace PageRegisterItem Page=%s Item=%s RegisteredItems=%d"),
@@ -264,6 +296,18 @@ bool UGameUIFocusPageWidgetBase::FocusItemByIdentifier(FGameplayTag FocusIdentif
 void UGameUIFocusPageWidgetBase::SetOwningFocusScreen(UGameUIFocusScreenWidgetBase* Screen)
 {
 	OwningFocusScreen = Screen;
+	if (!OwningFocusScreen)
+	{
+		return;
+	}
+
+	for (const TWeakObjectPtr<UGameUIFocusItemWidgetBase>& WeakItem : RegisteredFocusItems)
+	{
+		if (UGameUIFocusItemWidgetBase* Item = WeakItem.Get())
+		{
+			Item->SetPointerInputActive(OwningFocusScreen->IsPointerInputActive());
+		}
+	}
 }
 
 bool UGameUIFocusPageWidgetBase::RequestReturnToNavigationZone()
@@ -284,6 +328,11 @@ bool UGameUIFocusPageWidgetBase::HandleFocusItemAnalogInput(
 	if (!IsUsableFocusTarget(CurrentItem) || CurrentItem->GetOwningFocusPage() != this)
 	{
 		return false;
+	}
+
+	if (Key == EKeys::Gamepad_LeftX)
+	{
+		UpdateHorizontalAnalogSample(Value);
 	}
 
 	const double CurrentTimeSeconds = FPlatformTime::Seconds();
@@ -355,11 +404,13 @@ bool UGameUIFocusPageWidgetBase::HandleFocusItemDigitalInput(
 void UGameUIFocusPageWidgetBase::OnPageActivated_Implementation()
 {
 	ResetAnalogNavigation();
+	ResetHorizontalAnalogSample();
 }
 
 void UGameUIFocusPageWidgetBase::OnPageDeactivated_Implementation()
 {
 	ResetAnalogNavigation();
+	ResetHorizontalAnalogSample();
 }
 
 bool UGameUIFocusPageWidgetBase::EnterPageFocus_Implementation()
@@ -406,6 +457,7 @@ bool UGameUIFocusPageWidgetBase::EnterPageFocus_Implementation()
 void UGameUIFocusPageWidgetBase::LeavePageFocus_Implementation()
 {
 	ResetAnalogNavigation();
+	ResetHorizontalAnalogSample();
 }
 
 void UGameUIFocusPageWidgetBase::HandleFocusItemFocused_Implementation(UWidget* Widget)
@@ -584,6 +636,21 @@ bool UGameUIFocusPageWidgetBase::FocusItemInternal(UGameUIFocusItemWidgetBase* T
 void UGameUIFocusPageWidgetBase::ResetAnalogNavigation()
 {
 	AnalogNavigationState.Reset();
+}
+
+void UGameUIFocusPageWidgetBase::UpdateHorizontalAnalogSample(const float Value)
+{
+	HorizontalAnalogSample = FMath::Clamp(Value, -1.0f, 1.0f);
+}
+
+void UGameUIFocusPageWidgetBase::ResetHorizontalAnalogSample()
+{
+	HorizontalAnalogSample = 0.0f;
+}
+
+bool UGameUIFocusPageWidgetBase::IsHorizontalAnalogActuated(const float ReleaseThreshold) const
+{
+	return FMath::Abs(HorizontalAnalogSample) > FMath::Clamp(ReleaseThreshold, 0.0f, 1.0f);
 }
 
 void UGameUIFocusPageWidgetBase::TryMigrateLegacyAnalogConfig(const UGameUIFocusItemWidgetBase* Item)

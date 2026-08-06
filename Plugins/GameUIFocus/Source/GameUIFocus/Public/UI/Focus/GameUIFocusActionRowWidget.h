@@ -61,6 +61,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Action Row|Feedback")
 	TObjectPtr<USoundBase> ActivationSound = nullptr;
 
+	/** Played once when keyboard, gamepad or pointer interaction highlights this row. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Game UI|Focus|Action Row|Feedback")
+	TObjectPtr<USoundBase> HighlightSound = nullptr;
+
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> Text_Label = nullptr;
 

@@ -7,6 +7,7 @@
 #include "InputCoreTypes.h"
 #include "Internationalization/Text.h"
 #include "UI/Focus/GameUIFocusInputKeys.h"
+#include "UI/Focus/GameUIFocusPageWidgetBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameUIFocusValueRow, Log, All);
 
@@ -14,6 +15,36 @@ UGameUIFocusValueRowWidget::UGameUIFocusValueRowWidget(const FObjectInitializer&
 	: Super(ObjectInitializer)
 {
 	SetIsFocusable(true);
+}
+
+void UGameUIFocusValueRowWidget::NativeDestruct()
+{
+	ResetHorizontalAnalogReleaseGate();
+	Super::NativeDestruct();
+}
+
+void UGameUIFocusValueRowWidget::NativeOnAddedToFocusPath(const FFocusEvent& InFocusEvent)
+{
+	Super::NativeOnAddedToFocusPath(InFocusEvent);
+	ResetHorizontalAnalogInput();
+
+	const UGameUIFocusPageWidgetBase* FocusPage = GetOwningFocusPage();
+	HorizontalAnalogReleaseGate.Arm(
+		FocusPage && FocusPage->IsHorizontalAnalogActuated(AnalogInputReleaseThreshold));
+
+	if (HorizontalAnalogReleaseGate.IsAwaitingRelease())
+	{
+		UE_LOG(LogGameUIFocusValueRow, VeryVerbose,
+			TEXT("Value row waiting for horizontal analog release. Row=%s Threshold=%.3f"),
+			*GetNameSafe(this),
+			AnalogInputReleaseThreshold);
+	}
+}
+
+void UGameUIFocusValueRowWidget::NativeOnRemovedFromFocusPath(const FFocusEvent& InFocusEvent)
+{
+	ResetHorizontalAnalogReleaseGate();
+	Super::NativeOnRemovedFromFocusPath(InFocusEvent);
 }
 
 void UGameUIFocusValueRowWidget::InitializeValueRow(
@@ -198,6 +229,28 @@ FReply UGameUIFocusValueRowWidget::NativeOnAnalogValueChanged(const FGeometry& I
 
 	if (Key == EKeys::Gamepad_LeftX)
 	{
+		if (UGameUIFocusPageWidgetBase* FocusPage = GetOwningFocusPage())
+		{
+			FocusPage->UpdateHorizontalAnalogSample(AnalogValue);
+		}
+
+		const bool bWasAwaitingRelease = HorizontalAnalogReleaseGate.IsAwaitingRelease();
+		if (HorizontalAnalogReleaseGate.Process(AnalogValue, AnalogInputReleaseThreshold))
+		{
+			ResetHorizontalAnalogInput();
+			if (bWasAwaitingRelease && !HorizontalAnalogReleaseGate.IsAwaitingRelease())
+			{
+				UE_LOG(LogGameUIFocusValueRow, VeryVerbose,
+					TEXT("Value row horizontal analog release confirmed. Row=%s Value=%.3f"),
+					*GetNameSafe(this),
+					AnalogValue);
+			}
+
+			// The release sample only unlocks the row. A later, deliberate stick
+			// gesture is required to change its value.
+			return FReply::Handled();
+		}
+
 		const int32 Direction = AnalogValue > 0.0f ? 1 : -1;
 		return HandleAnalogOptionInput(
 			Direction,
@@ -518,6 +571,21 @@ void UGameUIFocusValueRowWidget::ResetAnalogOptionInput(double& LastInputTimeSec
 	bRepeatActive = false;
 	LastDirection = 0;
 	LastInputTimeSeconds = -1000.0;
+}
+
+void UGameUIFocusValueRowWidget::ResetHorizontalAnalogInput()
+{
+	ResetAnalogOptionInput(
+		LastHorizontalAnalogInputTimeSeconds,
+		LastHorizontalAnalogDirection,
+		bHorizontalAnalogInputHeld,
+		bHorizontalAnalogRepeatActive);
+}
+
+void UGameUIFocusValueRowWidget::ResetHorizontalAnalogReleaseGate()
+{
+	HorizontalAnalogReleaseGate.Reset();
+	ResetHorizontalAnalogInput();
 }
 
 void UGameUIFocusValueRowWidget::StepOptionIndex(int32 Direction)

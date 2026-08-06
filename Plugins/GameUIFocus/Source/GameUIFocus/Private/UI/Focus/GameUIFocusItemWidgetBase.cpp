@@ -6,6 +6,7 @@
 #include "InputCoreTypes.h"
 #include "Input/Events.h"
 #include "UI/Focus/GameUIFocusInputKeys.h"
+#include "UI/Focus/GameUIFocusInputDeviceTracker.h"
 #include "UI/Focus/GameUIFocusPageWidgetBase.h"
 #include "UI/Focus/GameUIFocusScreenWidgetBase.h"
 #include "UI/Focus/GameUIFocusTypes.h"
@@ -21,6 +22,10 @@ UGameUIFocusItemWidgetBase::UGameUIFocusItemWidgetBase(const FObjectInitializer&
 void UGameUIFocusItemWidgetBase::NativeConstruct()
 {
 	Super::NativeConstruct();
+	PointerInputStateChangedHandle = GameUIFocusInputDeviceTracker::OnPointerInputStateChanged().AddUObject(
+		this,
+		&UGameUIFocusItemWidgetBase::SetPointerInputActive);
+	SetPointerInputActive(GameUIFocusInputDeviceTracker::IsPointerInputActive());
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace ItemConstruct Item=%s Class=%s Focusable=%d"),
 		*GetNameSafe(this),
@@ -30,6 +35,8 @@ void UGameUIFocusItemWidgetBase::NativeConstruct()
 
 void UGameUIFocusItemWidgetBase::NativeDestruct()
 {
+	GameUIFocusInputDeviceTracker::OnPointerInputStateChanged().Remove(PointerInputStateChangedHandle);
+	PointerInputStateChangedHandle.Reset();
 	bAcceptPressed = false;
 	bPointerPressed = false;
 	Super::NativeDestruct();
@@ -219,8 +226,36 @@ FGameplayTag UGameUIFocusItemWidgetBase::GetFocusOverrideIdentifier(const FIntPo
 	return FGameplayTag();
 }
 
+void UGameUIFocusItemWidgetBase::SetPointerInputActive(const bool bActive)
+{
+	if (bPointerInputActive == bActive)
+	{
+		return;
+	}
+
+	bPointerInputActive = bActive;
+	if (!bPointerInputActive)
+	{
+		bPointerPressed = false;
+	}
+	UpdateInteractionHighlight();
+}
+
 FReply UGameUIFocusItemWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
+	if (InKeyEvent.GetKey().IsGamepadKey())
+	{
+		UGameUIFocusScreenWidgetBase* FocusScreen = OwningNavigationScreen.Get();
+		if (!FocusScreen && OwningFocusPage)
+		{
+			FocusScreen = OwningFocusPage->GetOwningFocusScreen();
+		}
+		if (FocusScreen)
+		{
+			FocusScreen->NotifyGamepadInput();
+		}
+	}
+
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace ItemPreviewKey Item=%s Key=%s Page=%s"),
 		*GetNameSafe(this),
@@ -307,6 +342,19 @@ FReply UGameUIFocusItemWidgetBase::NativeOnKeyUp(
 
 FReply UGameUIFocusItemWidgetBase::NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent)
 {
+	if (InAnalogEvent.GetKey().IsGamepadKey())
+	{
+		UGameUIFocusScreenWidgetBase* FocusScreen = OwningNavigationScreen.Get();
+		if (!FocusScreen && OwningFocusPage)
+		{
+			FocusScreen = OwningFocusPage->GetOwningFocusScreen();
+		}
+		if (FocusScreen)
+		{
+			FocusScreen->NotifyGamepadInput(InAnalogEvent.GetAnalogValue());
+		}
+	}
+
 	UE_LOG(LogGameUIFocus, VeryVerbose,
 		TEXT("GameUIFocusTrace ItemAnalog Item=%s Key=%s Value=%.3f Page=%s Screen=%s"),
 		*GetNameSafe(this),
@@ -398,7 +446,7 @@ void UGameUIFocusItemWidgetBase::SetHovered(bool bInIsHovered)
 
 void UGameUIFocusItemWidgetBase::UpdateInteractionHighlight()
 {
-	const bool bShouldHighlight = bHasFocusPath || bIsHovered;
+	const bool bShouldHighlight = bHasFocusPath || (bPointerInputActive && bIsHovered);
 	if (bIsInteractionHighlighted == bShouldHighlight)
 	{
 		return;

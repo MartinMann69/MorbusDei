@@ -62,6 +62,22 @@ struct GAMEUIFOCUS_API FGameUIAnalogNavigationResult
 };
 
 /**
+ * Consumes a carried analog gesture until it returns below its release threshold.
+ * The release sample itself is consumed so only a later, deliberate gesture can act.
+ */
+struct GAMEUIFOCUS_API FGameUIAnalogReleaseGate
+{
+	void Arm(bool bShouldWaitForRelease);
+	bool Process(float AnalogValue, float ReleaseThreshold);
+	void Reset();
+
+	bool IsAwaitingRelease() const { return bAwaitingRelease; }
+
+private:
+	bool bAwaitingRelease = false;
+};
+
+/**
  * Stable analog gesture state. The owner must outlive individual focus targets so a
  * focus transfer cannot turn a held stick into a fresh press.
  */
@@ -80,6 +96,7 @@ struct GAMEUIFOCUS_API FGameUIAnalogNavigationState
 
 	bool IsHeld() const { return bHeld; }
 	FIntPoint GetLatchedDirection() const { return LatchedDirection; }
+	FVector2D GetStickValue() const { return StickValue; }
 
 private:
 	FIntPoint ResolveDirection(EGameUIAnalogNavigationMode Mode) const;

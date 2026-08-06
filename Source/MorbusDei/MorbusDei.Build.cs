@@ -19,7 +19,8 @@ public class MorbusDei : ModuleRules
 			"Slate",
 			"SlateCore",
 			"MediaAssets",
-			"Niagara"
+			"Niagara",
+			"GameUIFocus"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
