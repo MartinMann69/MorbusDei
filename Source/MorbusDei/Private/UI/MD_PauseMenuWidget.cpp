@@ -114,7 +114,7 @@ FReply UMD_PauseMenuWidget::NativeOnPreviewKeyDown(
 			if (AMD_PlayerController* PlayerController = Cast<AMD_PlayerController>(GetOwningPlayer());
 				PlayerController && PlayerController->RequestClosePauseMenu())
 			{
-				OnBackActionHandled.Broadcast(SourceZone);
+				BroadcastBackActionHandled(SourceZone);
 			}
 		}
 

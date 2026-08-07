@@ -143,10 +143,10 @@ public:
 	virtual bool MoveNavigationFocus(int32 Direction);
 
 	/** Routes analog input from a registered navigation item through the screen-owned gesture state. */
-	bool HandleNavigationWidgetAnalogInput(UWidget* NavigationWidget, FKey Key, float Value);
+	virtual bool HandleNavigationWidgetAnalogInput(UWidget* NavigationWidget, FKey Key, float Value);
 
 	/** Routes D-pad/keyboard navigation directly from the focused registered entry. */
-	bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat);
+	virtual bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat);
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool RequestFocusNextTick(UWidget* Widget);
@@ -180,6 +180,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus|Input")
 	bool IsPointerInputActive() const { return bPointerInputActive; }
+
+	/** Broadcasts local and global semantic feedback after Back was successfully consumed. */
+	void BroadcastBackActionHandled(EGameUIFocusZone SourceZone);
 
 protected:
 	virtual void NativeConstruct() override;
