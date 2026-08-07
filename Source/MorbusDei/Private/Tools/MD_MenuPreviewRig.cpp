@@ -1,8 +1,8 @@
 #include "Tools/MD_MenuPreviewRig.h"
 
 #include "Camera/CameraComponent.h"
+#include "Components/MeshComponent.h"
 #include "Components/SceneComponent.h"
-#include "Components/StaticMeshComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/RectLightComponent.h"
 
@@ -76,6 +76,17 @@ void AMD_MenuPreviewRig::BeginPlay()
 	if (SpringArm)
 	{
 		DefaultSpringArmRelativeLocation = SpringArm->GetRelativeLocation();
+		CameraZoomReferenceDistance = SpringArm->TargetArmLength;
+	}
+
+	if (PreviewPivot)
+	{
+		DefaultPreviewPivotRelativeLocation = PreviewPivot->GetRelativeLocation();
+	}
+
+	if (PreviewLight)
+	{
+		DefaultPreviewLightRelativeLocation = PreviewLight->GetRelativeLocation();
 	}
 
 	SetZoomDistanceImmediate(DefaultZoomDistance);
@@ -100,7 +111,7 @@ void AMD_MenuPreviewRig::Tick(float DeltaSeconds)
 	else
 	{
 		CurrentZoomDistance = FMath::FInterpTo(CurrentZoomDistance, TargetZoomDistance, DeltaSeconds, ZoomInterpSpeed);
-		SpringArm->TargetArmLength = CurrentZoomDistance;
+		ApplyZoomDistance();
 		bNeedsTick = true;
 	}
 
@@ -124,7 +135,7 @@ void AMD_MenuPreviewRig::Tick(float DeltaSeconds)
 
 void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 {
-	if (!PreviewClass || !GetWorld())
+	if (!PreviewClass || !GetWorld() || !PreviewPivot || !SpawnPoint)
 	{
 		return;
 	}
@@ -134,6 +145,17 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	PreviewYaw = 0.0f;
 	PreviewPitch = 0.0f;
 	PreviewPivot->SetRelativeRotation(FRotator::ZeroRotator);
+	PreviewPivot->SetRelativeLocation(DefaultPreviewPivotRelativeLocation);
+	if (PreviewLight)
+	{
+		PreviewLight->SetRelativeLocation(DefaultPreviewLightRelativeLocation);
+	}
+	CurrentZoomDistance = CameraZoomReferenceDistance;
+	TargetZoomDistance = CameraZoomReferenceDistance;
+	if (SpringArm)
+	{
+		SpringArm->TargetArmLength = CameraZoomReferenceDistance;
+	}
 	ResetCameraPan();
 
 	FActorSpawnParameters SpawnParams;
@@ -155,7 +177,7 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 
 	FVector MeshCenter;
 	FVector MeshExtent;
-	if (GetStaticMeshBounds(CurrentPreviewActor, MeshCenter, MeshExtent))
+	if (GetPreviewActorBounds(CurrentPreviewActor, MeshCenter, MeshExtent))
 	{
 		const FVector Offset = SpawnPoint->GetComponentLocation() - MeshCenter;
 		CurrentPreviewActor->SetActorLocation(
@@ -168,13 +190,13 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 		DesiredZoomDistance = GetAutomaticZoomDistance(MeshExtent);
 	}
 
-	SetZoomDistanceImmediate(DesiredZoomDistance);
-	SetActorTickEnabled(true);
-
 	CurrentPreviewActor->AttachToComponent(
 		PreviewPivot,
 		FAttachmentTransformRules::KeepWorldTransform
 	);
+
+	SetZoomDistanceImmediate(DesiredZoomDistance);
+	SetActorTickEnabled(true);
 }
 
 void AMD_MenuPreviewRig::ClearPreview()
@@ -185,7 +207,21 @@ void AMD_MenuPreviewRig::ClearPreview()
 	}
 
 	CurrentPreviewActor = nullptr;
+	CurrentZoomDistance = CameraZoomReferenceDistance;
+	TargetZoomDistance = CameraZoomReferenceDistance;
+	if (SpringArm)
+	{
+		SpringArm->TargetArmLength = CameraZoomReferenceDistance;
+	}
 	ResetCameraPan();
+	if (PreviewPivot)
+	{
+		PreviewPivot->SetRelativeLocation(DefaultPreviewPivotRelativeLocation);
+	}
+	if (PreviewLight)
+	{
+		PreviewLight->SetRelativeLocation(DefaultPreviewLightRelativeLocation);
+	}
 	SetActorTickEnabled(false);
 }
 
@@ -246,21 +282,26 @@ void AMD_MenuPreviewRig::ResetCameraPan()
 	ApplyCameraPanOffset();
 }
 
-bool AMD_MenuPreviewRig::GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
+bool AMD_MenuPreviewRig::GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
 {
 	if (!Actor)
 	{
 		return false;
 	}
 
-	TArray<UStaticMeshComponent*> MeshComponents;
-	Actor->GetComponents<UStaticMeshComponent>(MeshComponents);
+	TArray<UMeshComponent*> MeshComponents;
+	Actor->GetComponents<UMeshComponent>(MeshComponents);
 
 	FBox CombinedBox(ForceInit);
 
-	for (UStaticMeshComponent* MeshComponent : MeshComponents)
+	for (UMeshComponent* MeshComponent : MeshComponents)
 	{
-		if (!IsValid(MeshComponent) || !MeshComponent->GetStaticMesh())
+		if (!IsValid(MeshComponent) || !MeshComponent->IsRegistered() || !MeshComponent->IsVisible())
+		{
+			continue;
+		}
+
+		if (MeshComponent->Bounds.BoxExtent.IsNearlyZero())
 		{
 			continue;
 		}
@@ -294,6 +335,21 @@ float AMD_MenuPreviewRig::GetAutomaticZoomDistance(const FVector& BoundsExtent) 
 	return GetClampedZoomDistance(AutomaticDistance);
 }
 
+FVector AMD_MenuPreviewRig::GetPreviewFramingLocalOffset() const
+{
+	const float ReferenceDistance = FMath::Max(PreviewFramingReferenceDistance, 1.0f);
+	const float DistanceScale = FMath::Max(CurrentZoomDistance, 1.0f) / ReferenceDistance;
+	const FVector2D ScaledFramingOffset = PreviewFramingOffset * DistanceScale;
+	const FVector FramingWorldOffset = PreviewCamera
+		? PreviewCamera->GetRightVector() * ScaledFramingOffset.X + PreviewCamera->GetUpVector() * ScaledFramingOffset.Y
+		: GetActorRightVector() * ScaledFramingOffset.X + GetActorUpVector() * ScaledFramingOffset.Y;
+
+	const USceneComponent* PivotParent = PreviewPivot ? PreviewPivot->GetAttachParent() : nullptr;
+	return PivotParent
+		? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(FramingWorldOffset)
+		: FramingWorldOffset;
+}
+
 void AMD_MenuPreviewRig::SetZoomDistanceImmediate(float Distance)
 {
 	CurrentZoomDistance = GetClampedZoomDistance(Distance);
@@ -301,7 +357,42 @@ void AMD_MenuPreviewRig::SetZoomDistanceImmediate(float Distance)
 
 	if (SpringArm)
 	{
-		SpringArm->TargetArmLength = CurrentZoomDistance;
+		SpringArm->TargetArmLength = CameraZoomReferenceDistance;
+	}
+
+	ApplyZoomDistance();
+}
+
+void AMD_MenuPreviewRig::ApplyZoomDistance()
+{
+	if (!PreviewPivot)
+	{
+		return;
+	}
+
+	const float ZoomOffsetDistance = CameraZoomReferenceDistance - CurrentZoomDistance;
+	FVector ZoomWorldOffset = FVector::ZeroVector;
+
+	if (PreviewCamera)
+	{
+		ZoomWorldOffset = -PreviewCamera->GetForwardVector() * ZoomOffsetDistance;
+	}
+	else if (SpringArm)
+	{
+		const FVector ToCamera = SpringArm->GetSocketLocation(USpringArmComponent::SocketName) - PreviewPivot->GetComponentLocation();
+		ZoomWorldOffset = ToCamera.GetSafeNormal() * ZoomOffsetDistance;
+	}
+
+	const USceneComponent* PivotParent = PreviewPivot->GetAttachParent();
+	const FVector LocalZoomOffset = PivotParent
+		? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(ZoomWorldOffset)
+		: ZoomWorldOffset;
+	const FVector LocalPlacementOffset = GetPreviewFramingLocalOffset() + LocalZoomOffset;
+
+	PreviewPivot->SetRelativeLocation(DefaultPreviewPivotRelativeLocation + LocalPlacementOffset);
+	if (PreviewLight)
+	{
+		PreviewLight->SetRelativeLocation(DefaultPreviewLightRelativeLocation + LocalPlacementOffset);
 	}
 }
 
