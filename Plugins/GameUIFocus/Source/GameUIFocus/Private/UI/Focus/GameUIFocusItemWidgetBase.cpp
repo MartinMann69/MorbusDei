@@ -151,6 +151,10 @@ void UGameUIFocusItemWidgetBase::NativeOnMouseEnter(const FGeometry& InGeometry,
 {
 	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
 	SetHovered(true);
+	if (bPointerInputActive)
+	{
+		RequestInteractionFocus();
+	}
 }
 
 void UGameUIFocusItemWidgetBase::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
@@ -239,6 +243,13 @@ void UGameUIFocusItemWidgetBase::SetPointerInputActive(const bool bActive)
 		bPointerPressed = false;
 	}
 	UpdateInteractionHighlight();
+
+	// Mouse movement can switch the input mode while Slate already considers this
+	// item hovered. Keep navigation focus aligned without waiting for another enter.
+	if (bPointerInputActive && bIsHovered)
+	{
+		RequestInteractionFocus();
+	}
 }
 
 FReply UGameUIFocusItemWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -446,7 +457,7 @@ void UGameUIFocusItemWidgetBase::SetHovered(bool bInIsHovered)
 
 void UGameUIFocusItemWidgetBase::UpdateInteractionHighlight()
 {
-	const bool bShouldHighlight = bHasFocusPath || (bPointerInputActive && bIsHovered);
+	const bool bShouldHighlight = bPointerInputActive ? bIsHovered : bHasFocusPath;
 	if (bIsInteractionHighlighted == bShouldHighlight)
 	{
 		return;

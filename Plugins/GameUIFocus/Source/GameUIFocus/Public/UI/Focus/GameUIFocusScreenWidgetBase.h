@@ -8,6 +8,7 @@
 
 class UWidget;
 class UWidgetSwitcher;
+enum class EGameUIFocusInputMode : uint8;
 
 USTRUCT(BlueprintType)
 struct FGameUIFocusNavigationEntry
@@ -166,6 +167,9 @@ public:
 	/** Switches UI feedback to gamepad navigation and hides stale pointer hover. */
 	void NotifyGamepadInput(float InputStrength = 1.0f);
 
+	/** Switches UI feedback to keyboard navigation without hiding the cursor. */
+	void NotifyNavigationInput();
+
 	/** Switches UI feedback back to pointer interaction. */
 	void NotifyPointerInput();
 
@@ -277,9 +281,9 @@ private:
 	bool CanProcessNavigationMove(bool bIsRepeat);
 	void ResetAnalogNavigation();
 	void TryMigrateLegacyAnalogConfig();
-	void SetPointerInputActive(bool bActive);
+	void SetInputMode(EGameUIFocusInputMode NewMode);
 	void RefreshPointerInteractionState();
-	void HandleGlobalPointerInputStateChanged(bool bActive);
+	void HandleGlobalInputModeChanged(EGameUIFocusInputMode NewMode);
 	void ApplyMouseCursorVisibility() const;
 	void SchedulePointerInputStateReapply();
 	void WarnIfWeakFocusTarget(const UWidget* Widget, EGameUIFocusZone Zone) const;
@@ -302,6 +306,7 @@ private:
 	FGameUIAnalogNavigationState AnalogNavigationState;
 	bool bMigratedLegacyAnalogConfig = false;
 	bool bPointerInputActive = true;
-	FDelegateHandle PointerInputStateChangedHandle;
+	EGameUIFocusInputMode InputMode;
+	FDelegateHandle InputModeChangedHandle;
 	uint64 PointerInputReapplySerial = 0;
 };

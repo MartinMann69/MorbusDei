@@ -4,23 +4,48 @@
 
 namespace GameUIFocusInputDeviceTracker
 {
-	bool bPointerInputActive = true;
+	EGameUIFocusInputMode InputMode = EGameUIFocusInputMode::Pointer;
+	FInputModeChanged InputModeChanged;
 	FPointerInputStateChanged PointerInputStateChanged;
 
-	bool IsPointerInputActive()
+	EGameUIFocusInputMode GetInputMode()
 	{
-		return bPointerInputActive;
+		return InputMode;
 	}
 
-	void SetPointerInputActive(const bool bActive)
+	void SetInputMode(const EGameUIFocusInputMode NewMode)
 	{
-		if (bPointerInputActive == bActive)
+		if (InputMode == NewMode)
 		{
 			return;
 		}
 
-		bPointerInputActive = bActive;
-		PointerInputStateChanged.Broadcast(bPointerInputActive);
+		const bool bWasPointerInputActive = InputMode == EGameUIFocusInputMode::Pointer;
+		InputMode = NewMode;
+		InputModeChanged.Broadcast(InputMode);
+
+		const bool bIsPointerInputActive = InputMode == EGameUIFocusInputMode::Pointer;
+		if (bWasPointerInputActive != bIsPointerInputActive)
+		{
+			PointerInputStateChanged.Broadcast(bIsPointerInputActive);
+		}
+	}
+
+	FInputModeChanged& OnInputModeChanged()
+	{
+		return InputModeChanged;
+	}
+
+	bool IsPointerInputActive()
+	{
+		return InputMode == EGameUIFocusInputMode::Pointer;
+	}
+
+	void SetPointerInputActive(const bool bActive)
+	{
+		SetInputMode(bActive
+			? EGameUIFocusInputMode::Pointer
+			: EGameUIFocusInputMode::GamepadNavigation);
 	}
 
 	FPointerInputStateChanged& OnPointerInputStateChanged()

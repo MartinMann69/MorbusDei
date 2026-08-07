@@ -83,17 +83,6 @@ FReply UGameUIFocusActionRowWidget::NativeOnKeyUp(const FGeometry& InGeometry, c
 	return FReply::Handled();
 }
 
-void UGameUIFocusActionRowWidget::NativeOnMouseEnter(
-	const FGeometry& InGeometry,
-	const FPointerEvent& InMouseEvent)
-{
-	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
-
-	// Keep pointer and controller selection in sync, matching the existing
-	// WBP_BaseButton hover contract without adding a focusable child button.
-	RequestInteractionFocus();
-}
-
 FReply UGameUIFocusActionRowWidget::NativeOnMouseButtonDown(
 	const FGeometry& InGeometry,
 	const FPointerEvent& InMouseEvent)
