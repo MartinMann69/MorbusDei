@@ -1001,6 +1001,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleNavigationZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				OnBackActionHandled.Broadcast(EGameUIFocusZone::Navigation);
+			}
+			return FReply::Handled();
+		}
+
+		if (bBackAction && HandleRootBackAction())
+		{
+			OnBackActionHandled.Broadcast(EGameUIFocusZone::Navigation);
 			return FReply::Handled();
 		}
 
@@ -1032,11 +1042,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleContentZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				OnBackActionHandled.Broadcast(EGameUIFocusZone::Content);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnToNavigationZone())
 		{
+			OnBackActionHandled.Broadcast(EGameUIFocusZone::Content);
 			return FReply::Handled();
 		}
 	}
@@ -1044,11 +1059,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleModalZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				OnBackActionHandled.Broadcast(EGameUIFocusZone::Modal);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnFromModalZone())
 		{
+			OnBackActionHandled.Broadcast(EGameUIFocusZone::Modal);
 			return FReply::Handled();
 		}
 	}
@@ -1338,6 +1358,11 @@ bool UGameUIFocusScreenWidgetBase::HandleContentZoneKey_Implementation(FKey Key)
 }
 
 bool UGameUIFocusScreenWidgetBase::HandleModalZoneKey_Implementation(FKey Key)
+{
+	return false;
+}
+
+bool UGameUIFocusScreenWidgetBase::HandleRootBackAction_Implementation()
 {
 	return false;
 }

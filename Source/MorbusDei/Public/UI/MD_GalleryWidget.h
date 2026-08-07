@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "UI/MD_MenuLayerScreenWidget.h"
 #include "MD_GalleryWidget.generated.h"
 
 class UWidget;
 class AMD_MenuPreviewRig;
 
 UCLASS()
-class MORBUSDEI_API UMD_GalleryWidget : public UUserWidget
+class MORBUSDEI_API UMD_GalleryWidget : public UMD_MenuLayerScreenWidget
 {
 	GENERATED_BODY()
 public:

@@ -4,7 +4,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
-#include "Blueprint/UserWidget.h"
 #include "Interaction/MD_PlayerInteractionComponent.h"
 #include "MD_PlayerCharacter.generated.h"
 
@@ -16,8 +15,6 @@ class UCameraComponent;
 class USpringArmComponent;
 class UMD_PlayerInteractionComponent;
 class UMD_PlayerInspectComponent;
-
-class UUserWidget;
 
 struct FInputActionValue;
 
@@ -38,12 +35,6 @@ public:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> PauseMenuWidgetClass;
-
-	UPROPERTY()
-	UUserWidget* PauseMenuWidget;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	float MouseSensitivity = 1.0f;
@@ -77,9 +68,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputAction* LookAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
-	UInputAction* MenuAction;
-
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* InteractAction;
 
@@ -95,6 +83,5 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Zoom(const FInputActionValue& Value);
-	void ToggleEscapeMenu();
 	
 };

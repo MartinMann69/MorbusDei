@@ -50,6 +50,7 @@ struct FGameUIFocusStateSnapshot
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGameUIFocusZoneChanged, EGameUIFocusZone, PreviousZone, EGameUIFocusZone, NewZone);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGameUINavigationIndexChanged, int32, PreviousIndex, int32, NewIndex);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGameUIBackActionHandled, EGameUIFocusZone, SourceZone);
 
 UCLASS(BlueprintType, Blueprintable)
 class GAMEUIFOCUS_API UGameUIFocusScreenWidgetBase : public UUserWidget
@@ -67,6 +68,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
 	FGameUIFocusNavigationBlocked OnNavigationBlocked;
+
+	/** Fired once after Back was consumed by this screen. Use it for audio and visual feedback. */
+	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
+	FGameUIBackActionHandled OnBackActionHandled;
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool InitializeFocusScreen(bool bFocusNavigation = true);
@@ -193,6 +198,10 @@ protected:
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	bool HandleModalZoneKey(FKey Key);
+
+	/** Optional top-level Back behavior. Other screens remain unchanged unless they override this. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
+	bool HandleRootBackAction();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	void HandleFocusZoneChanged(EGameUIFocusZone PreviousZone, EGameUIFocusZone NewZone);

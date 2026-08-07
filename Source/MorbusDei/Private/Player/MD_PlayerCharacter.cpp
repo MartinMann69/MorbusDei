@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Player/MD_PlayerCharacter.h"
-#include "Input/MD_InputDeviceSubsystem.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
@@ -77,7 +76,6 @@ void AMD_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Move);
 	EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Look);
 	EnhancedInput->BindAction(ZoomAction, ETriggerEvent::Triggered, this, &AMD_PlayerCharacter::Zoom);
-	EnhancedInput->BindAction(MenuAction, ETriggerEvent::Started, this, &AMD_PlayerCharacter::ToggleEscapeMenu);
 	EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, InteractionComp, &UMD_PlayerInteractionComponent::Interact);
 	EnhancedInput->BindAction(InspectAction, ETriggerEvent::Started, InteractionComp, &UMD_PlayerInteractionComponent::Inspect);
 }
@@ -139,37 +137,4 @@ void AMD_PlayerCharacter::Zoom(const FInputActionValue& Value)
 
 	const float ZoomInput = Value.Get<float>();
 	InspectComp->ZoomInspectedItem(ZoomInput);
-}
-
-void AMD_PlayerCharacter::ToggleEscapeMenu() //! Should later be moved in to "PlayerController"
-{
-	// if (InspectComp && InspectComp->IsInspecting())
-	// {
-	// 	InspectComp->EndInspect();
-	// 	return;
-	// }
-	
-	UE_LOG(LogTemp, Warning, TEXT("Open Menu"));
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-
-	if (PauseMenuWidgetClass && !PauseMenuWidget)
-	{
-		PauseMenuWidget = CreateWidget<UUserWidget>(PC, PauseMenuWidgetClass);
-	}
-
-	if (PauseMenuWidget)
-	{
-		PauseMenuWidget->AddToViewport();
-
-		FInputModeUIOnly InputMode;
-		InputMode.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
-		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-
-		PC->SetInputMode(InputMode);
-		const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-			? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-			: nullptr;
-		PC->bShowMouseCursor = !InputDeviceSubsystem || !InputDeviceSubsystem->IsUsingGamepad();
-	}
 }
