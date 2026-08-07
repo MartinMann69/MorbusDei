@@ -85,6 +85,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Zoom", meta=(ClampMin="0.0"))
 	float AutomaticDistancePadding = 35.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Framing", meta=(ToolTip="Positive X moves the preview center right. Positive Y moves it up."))
+	FVector2D PreviewFramingOffset = FVector2D(90.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Menu Preview|Framing", meta=(ClampMin="1.0", ToolTip="Distance where Preview Framing Offset is used at full size. Closer previews scale it down to keep the screen-space offset consistent."))
+	float PreviewFramingReferenceDistance = 700.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Menu Preview|Lighting")
 	TObjectPtr<URectLightComponent> RectLight;
@@ -109,13 +115,18 @@ private:
 	float PreviewPitch = 0.0f;
 	float CurrentZoomDistance = 700.0f;
 	float TargetZoomDistance = 700.0f;
+	float CameraZoomReferenceDistance = 700.0f;
+	FVector DefaultPreviewPivotRelativeLocation = FVector::ZeroVector;
+	FVector DefaultPreviewLightRelativeLocation = FVector::ZeroVector;
 	FVector DefaultSpringArmRelativeLocation = FVector::ZeroVector;
 	FVector CameraPanOffset = FVector::ZeroVector;
 	FVector TargetCameraPanOffset = FVector::ZeroVector;
 
-	bool GetStaticMeshBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const;
+	bool GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const;
 	float GetClampedZoomDistance(float Distance) const;
 	float GetAutomaticZoomDistance(const FVector& BoundsExtent) const;
+	FVector GetPreviewFramingLocalOffset() const;
 	void SetZoomDistanceImmediate(float Distance);
+	void ApplyZoomDistance();
 	void ApplyCameraPanOffset();
 };
