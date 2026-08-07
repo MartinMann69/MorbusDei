@@ -26,7 +26,7 @@ public:
 		FSlateApplication& SlateApp,
 		const FKeyEvent& InKeyEvent) override
 	{
-		NotifyKey(InKeyEvent.GetKey());
+		NotifyKey(SlateApp, InKeyEvent);
 		return false;
 	}
 
@@ -40,6 +40,7 @@ public:
 			&& FMath::Abs(InAnalogInputEvent.GetAnalogValue())
 				>= InputDeviceSubsystem->GamepadAnalogActivationThreshold)
 		{
+			GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::GamepadNavigation);
 			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::Gamepad);
 		}
 		return false;
@@ -55,7 +56,7 @@ public:
 			&& MouseEvent.GetCursorDelta().SizeSquared()
 				>= FMath::Square(InputDeviceSubsystem->MouseMoveActivationThreshold))
 		{
-			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::KeyboardMouse);
+			NotifyPointerInput();
 		}
 		return false;
 	}
@@ -66,7 +67,7 @@ public:
 	{
 		if (IsPointerInsideGameViewport(SlateApp, MouseEvent))
 		{
-			NotifyKeyboardMouse();
+			NotifyPointerInput();
 		}
 		return false;
 	}
@@ -77,7 +78,7 @@ public:
 	{
 		if (IsPointerInsideGameViewport(SlateApp, MouseEvent))
 		{
-			NotifyKeyboardMouse();
+			NotifyPointerInput();
 		}
 		return false;
 	}
@@ -90,7 +91,7 @@ public:
 		if (IsPointerInsideGameViewport(SlateApp, InWheelEvent)
 			&& (!FMath::IsNearlyZero(InWheelEvent.GetWheelDelta()) || InGestureEvent))
 		{
-			NotifyKeyboardMouse();
+			NotifyPointerInput();
 		}
 		return false;
 	}
@@ -108,21 +109,37 @@ private:
 			&& GameViewport->GetCachedGeometry().IsUnderLocation(MouseEvent.GetScreenSpacePosition());
 	}
 
-	void NotifyKey(const FKey& Key) const
+	void NotifyKey(FSlateApplication& SlateApp, const FKeyEvent& KeyEvent) const
 	{
 		if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = Subsystem.Get())
 		{
-			InputDeviceSubsystem->NotifyInputDevice(
-				Key.IsGamepadKey()
-					? EMDInputDeviceType::Gamepad
-					: EMDInputDeviceType::KeyboardMouse);
+			const FKey Key = KeyEvent.GetKey();
+			if (Key.IsGamepadKey())
+			{
+				GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::GamepadNavigation);
+				InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::Gamepad);
+				return;
+			}
+
+			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::KeyboardMouse);
+			const EUINavigation NavigationDirection = SlateApp.GetNavigationDirectionFromKey(KeyEvent);
+			const EUINavigationAction NavigationAction = SlateApp.GetNavigationActionFromKey(KeyEvent);
+			if (NavigationDirection != EUINavigation::Invalid
+				|| NavigationAction != EUINavigationAction::Invalid
+				|| Key == EKeys::Enter
+				|| Key == EKeys::SpaceBar
+				|| Key == EKeys::Escape)
+			{
+				GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::KeyboardNavigation);
+			}
 		}
 	}
 
-	void NotifyKeyboardMouse() const
+	void NotifyPointerInput() const
 	{
 		if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = Subsystem.Get())
 		{
+			GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::Pointer);
 			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::KeyboardMouse);
 		}
 	}
@@ -134,7 +151,7 @@ void UMD_InputDeviceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	ActiveInputDevice = EMDInputDeviceType::KeyboardMouse;
-	GameUIFocusInputDeviceTracker::SetPointerInputActive(true);
+	GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::Pointer);
 
 	if (!FSlateApplication::IsInitialized())
 	{
@@ -152,7 +169,7 @@ void UMD_InputDeviceSubsystem::Deinitialize()
 		FSlateApplication::Get().UnregisterInputPreProcessor(InputPreProcessor);
 	}
 	InputPreProcessor.Reset();
-	GameUIFocusInputDeviceTracker::SetPointerInputActive(true);
+	GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::Pointer);
 
 	Super::Deinitialize();
 }
@@ -169,8 +186,6 @@ void UMD_InputDeviceSubsystem::SetMouseMoveActivationThreshold(const float NewTh
 
 void UMD_InputDeviceSubsystem::NotifyInputDevice(const EMDInputDeviceType NewDevice)
 {
-	GameUIFocusInputDeviceTracker::SetPointerInputActive(NewDevice != EMDInputDeviceType::Gamepad);
-
 	if (ActiveInputDevice == NewDevice)
 	{
 		return;
