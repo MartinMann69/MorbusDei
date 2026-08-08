@@ -12,6 +12,7 @@
 #include "InputCoreTypes.h"
 #include "UI/Focus/GameUIFocusInputKeys.h"
 #include "UI/Focus/GameUIFocusInputDeviceTracker.h"
+#include "UI/Focus/GameUIFocusFeedback.h"
 #include "UI/Focus/GameUIFocusItemWidgetBase.h"
 #include "UI/Focus/GameUIFocusPageInterface.h"
 #include "UI/Focus/GameUIFocusPageWidgetBase.h"
@@ -683,8 +684,19 @@ void UGameUIFocusScreenWidgetBase::NotifyContentWidgetFocused(UWidget* Widget)
 		return;
 	}
 
+	const bool bSelectionChanged = LastFocusedWidget.IsValid() && LastFocusedWidget.Get() != Widget;
 	LastFocusedWidget = Widget;
 	SetCurrentFocusZone(EGameUIFocusZone::Content);
+	if (bSelectionChanged)
+	{
+		GameUIFocusFeedback::OnSelectionChanged().Broadcast(this);
+	}
+}
+
+void UGameUIFocusScreenWidgetBase::BroadcastBackActionHandled(const EGameUIFocusZone SourceZone)
+{
+	OnBackActionHandled.Broadcast(SourceZone);
+	GameUIFocusFeedback::OnBackHandled().Broadcast(this);
 }
 
 void UGameUIFocusScreenWidgetBase::NotifyNavigationWidgetFocused(UWidget* Widget)
@@ -1001,6 +1013,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleNavigationZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Navigation);
+			}
+			return FReply::Handled();
+		}
+
+		if (bBackAction && HandleRootBackAction())
+		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Navigation);
 			return FReply::Handled();
 		}
 
@@ -1032,11 +1054,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleContentZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Content);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnToNavigationZone())
 		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Content);
 			return FReply::Handled();
 		}
 	}
@@ -1044,11 +1071,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleModalZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Modal);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnFromModalZone())
 		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Modal);
 			return FReply::Handled();
 		}
 	}
@@ -1342,6 +1374,11 @@ bool UGameUIFocusScreenWidgetBase::HandleModalZoneKey_Implementation(FKey Key)
 	return false;
 }
 
+bool UGameUIFocusScreenWidgetBase::HandleRootBackAction_Implementation()
+{
+	return false;
+}
+
 void UGameUIFocusScreenWidgetBase::HandleFocusZoneChanged_Implementation(EGameUIFocusZone PreviousZone, EGameUIFocusZone NewZone)
 {
 }
@@ -1381,6 +1418,7 @@ void UGameUIFocusScreenWidgetBase::SetActiveNavigationIndex(int32 NewIndex)
 	ActiveNavigationIndex = NewIndex;
 	OnNavigationIndexChanged.Broadcast(PreviousIndex, NewIndex);
 	HandleNavigationIndexChanged(PreviousIndex, NewIndex);
+	GameUIFocusFeedback::OnSelectionChanged().Broadcast(this);
 }
 
 int32 UGameUIFocusScreenWidgetBase::GetPageIndexForNavigationIndex(int32 NavigationIndex) const

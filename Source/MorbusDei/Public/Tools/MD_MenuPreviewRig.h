@@ -38,6 +38,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
 	void ResetCameraPan();
 
+	/** Restores the rotation, automatic zoom and camera offset of the current item. */
+	UFUNCTION(BlueprintCallable, Category="MD|Menu Preview")
+	void ResetPreviewView();
+
+	UFUNCTION(BlueprintPure, Category="MD|Menu Preview")
+	bool HasPreview() const { return IsValid(CurrentPreviewActor); }
+
+	/** 0 is fully zoomed in at MinZoom, 1 is fully zoomed out at MaxZoom. */
+	UFUNCTION(BlueprintPure, Category="MD|Menu Preview|Zoom")
+	float GetNormalizedZoomDistance() const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Menu Preview")
 	TObjectPtr<USceneComponent> PreviewPivot;
 
@@ -116,6 +127,7 @@ private:
 	float CurrentZoomDistance = 700.0f;
 	float TargetZoomDistance = 700.0f;
 	float CameraZoomReferenceDistance = 700.0f;
+	float InitialPreviewZoomDistance = 700.0f;
 	FVector DefaultPreviewPivotRelativeLocation = FVector::ZeroVector;
 	FVector DefaultPreviewLightRelativeLocation = FVector::ZeroVector;
 	FVector DefaultSpringArmRelativeLocation = FVector::ZeroVector;

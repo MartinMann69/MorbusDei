@@ -50,6 +50,7 @@ struct FGameUIFocusStateSnapshot
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGameUIFocusZoneChanged, EGameUIFocusZone, PreviousZone, EGameUIFocusZone, NewZone);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGameUINavigationIndexChanged, int32, PreviousIndex, int32, NewIndex);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FGameUIBackActionHandled, EGameUIFocusZone, SourceZone);
 
 UCLASS(BlueprintType, Blueprintable)
 class GAMEUIFOCUS_API UGameUIFocusScreenWidgetBase : public UUserWidget
@@ -67,6 +68,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
 	FGameUIFocusNavigationBlocked OnNavigationBlocked;
+
+	/** Fired once after Back was consumed by this screen. Use it for audio and visual feedback. */
+	UPROPERTY(BlueprintAssignable, Category = "Game UI|Focus")
+	FGameUIBackActionHandled OnBackActionHandled;
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool InitializeFocusScreen(bool bFocusNavigation = true);
@@ -138,10 +143,10 @@ public:
 	virtual bool MoveNavigationFocus(int32 Direction);
 
 	/** Routes analog input from a registered navigation item through the screen-owned gesture state. */
-	bool HandleNavigationWidgetAnalogInput(UWidget* NavigationWidget, FKey Key, float Value);
+	virtual bool HandleNavigationWidgetAnalogInput(UWidget* NavigationWidget, FKey Key, float Value);
 
 	/** Routes D-pad/keyboard navigation directly from the focused registered entry. */
-	bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat);
+	virtual bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat);
 
 	UFUNCTION(BlueprintCallable, Category = "Game UI|Focus")
 	bool RequestFocusNextTick(UWidget* Widget);
@@ -176,6 +181,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game UI|Focus|Input")
 	bool IsPointerInputActive() const { return bPointerInputActive; }
 
+	/** Broadcasts local and global semantic feedback after Back was successfully consumed. */
+	void BroadcastBackActionHandled(EGameUIFocusZone SourceZone);
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
@@ -193,6 +201,10 @@ protected:
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	bool HandleModalZoneKey(FKey Key);
+
+	/** Optional top-level Back behavior. Other screens remain unchanged unless they override this. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
+	bool HandleRootBackAction();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Game UI|Focus")
 	void HandleFocusZoneChanged(EGameUIFocusZone PreviousZone, EGameUIFocusZone NewZone);

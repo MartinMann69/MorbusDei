@@ -196,6 +196,7 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	);
 
 	SetZoomDistanceImmediate(DesiredZoomDistance);
+	InitialPreviewZoomDistance = DesiredZoomDistance;
 	SetActorTickEnabled(true);
 }
 
@@ -256,6 +257,7 @@ void AMD_MenuPreviewRig::PanPreview(float HorizontalDirection, float VerticalDir
 	{
 		return;
 	}
+	const float PanMagnitude = FMath::Clamp(PanInput.Size(), 0.0f, 1.0f);
 
 	const FVector PanWorldDirection = PreviewCamera
 		? PreviewCamera->GetRightVector() * PanInput.X + PreviewCamera->GetUpVector() * PanInput.Y
@@ -268,8 +270,9 @@ void AMD_MenuPreviewRig::PanPreview(float HorizontalDirection, float VerticalDir
 
 	const USceneComponent* AttachParent = SpringArm->GetAttachParent();
 	const FVector LocalPanDelta = AttachParent
-		? AttachParent->GetComponentTransform().InverseTransformVectorNoScale(PanWorldDirection.GetSafeNormal() * CameraPanSpeed * DeltaSeconds)
-		: PanWorldDirection.GetSafeNormal() * CameraPanSpeed * DeltaSeconds;
+		? AttachParent->GetComponentTransform().InverseTransformVectorNoScale(
+			PanWorldDirection.GetSafeNormal() * CameraPanSpeed * PanMagnitude * DeltaSeconds)
+		: PanWorldDirection.GetSafeNormal() * CameraPanSpeed * PanMagnitude * DeltaSeconds;
 
 	TargetCameraPanOffset = (TargetCameraPanOffset + LocalPanDelta).GetClampedToMaxSize(MaxCameraPanOffset);
 	SetActorTickEnabled(true);
@@ -280,6 +283,35 @@ void AMD_MenuPreviewRig::ResetCameraPan()
 	CameraPanOffset = FVector::ZeroVector;
 	TargetCameraPanOffset = FVector::ZeroVector;
 	ApplyCameraPanOffset();
+}
+
+void AMD_MenuPreviewRig::ResetPreviewView()
+{
+	if (!IsValid(CurrentPreviewActor) || !PreviewPivot)
+	{
+		return;
+	}
+
+	PreviewYaw = 0.0f;
+	PreviewPitch = 0.0f;
+	PreviewPivot->SetRelativeRotation(FRotator::ZeroRotator);
+	ResetCameraPan();
+	SetZoomDistanceImmediate(InitialPreviewZoomDistance);
+}
+
+float AMD_MenuPreviewRig::GetNormalizedZoomDistance() const
+{
+	const float MinimumDistance = FMath::Min(MinZoom, MaxZoom);
+	const float MaximumDistance = FMath::Max(MinZoom, MaxZoom);
+	if (FMath::IsNearlyEqual(MinimumDistance, MaximumDistance))
+	{
+		return 1.0f;
+	}
+
+	return FMath::GetMappedRangeValueClamped(
+		FVector2D(MinimumDistance, MaximumDistance),
+		FVector2D(0.0f, 1.0f),
+		CurrentZoomDistance);
 }
 
 bool AMD_MenuPreviewRig::GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
