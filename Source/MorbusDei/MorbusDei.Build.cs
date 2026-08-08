@@ -15,6 +15,8 @@ public class MorbusDei : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
+			"DeveloperSettings",
+			"GameplayTags",
 			"UMG",
 			"Slate",
 			"SlateCore",
@@ -25,7 +27,6 @@ public class MorbusDei : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"GameplayTags",
 			"Slate",
 			"SlateCore"
 		});

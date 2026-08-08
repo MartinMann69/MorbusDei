@@ -18,6 +18,8 @@ public class MorbusDeiEditor : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"BlueprintGraph",
+			"Kismet",
 			"Slate",
 			"SlateCore",
 			"UnrealEd"

@@ -15,6 +15,8 @@ class UCameraComponent;
 class USpringArmComponent;
 class UMD_PlayerInteractionComponent;
 class UMD_PlayerInspectComponent;
+class UMD_PlayerHapticFeedbackComponent;
+class UMD_FoleyEventRelayComponent;
 
 struct FInputActionValue;
 
@@ -58,6 +60,14 @@ protected:
 
 	UPROPERTY(VisibleAnywhere)
 	UMD_PlayerInspectComponent* InspectComp;
+
+	/** Neutral event bridge shared by Foley and player feedback systems. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Feedback")
+	UMD_FoleyEventRelayComponent* FoleyEventRelayComp;
+
+	/** Converts local player feedback events into subtle controller haptics. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Haptics")
+	UMD_PlayerHapticFeedbackComponent* HapticFeedbackComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputMappingContext* DefaultMappingContext;

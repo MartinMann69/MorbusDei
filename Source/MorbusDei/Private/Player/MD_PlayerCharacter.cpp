@@ -11,6 +11,8 @@
 
 #include "Interaction/MD_PlayerInspectComponent.h"
 #include "Interaction/MD_PlayerInteractionComponent.h"
+#include "Feedback/MD_FoleyEventRelayComponent.h"
+#include "Haptics/MD_PlayerHapticFeedbackComponent.h"
 
 // Sets default values
 AMD_PlayerCharacter::AMD_PlayerCharacter()
@@ -48,6 +50,8 @@ AMD_PlayerCharacter::AMD_PlayerCharacter()
 
 	InteractionComp = CreateDefaultSubobject<UMD_PlayerInteractionComponent>("InteractionComponent");
 	InspectComp = CreateDefaultSubobject<UMD_PlayerInspectComponent>("InspectComponent");
+	FoleyEventRelayComp = CreateDefaultSubobject<UMD_FoleyEventRelayComponent>("FoleyEventRelayComponent");
+	HapticFeedbackComp = CreateDefaultSubobject<UMD_PlayerHapticFeedbackComponent>("HapticFeedbackComponent");
 }
 
 // Called when the game starts or when spawned

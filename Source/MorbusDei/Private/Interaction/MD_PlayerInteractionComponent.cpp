@@ -58,7 +58,9 @@ void UMD_PlayerInteractionComponent::Interact()
 		return;
 	}
 
-	IMD_InteractInterface::Execute_Interact(CurrentFocusedInteractable, OwningPawn);
+	AActor* InteractedActor = CurrentFocusedInteractable;
+	IMD_InteractInterface::Execute_Interact(InteractedActor, OwningPawn);
+	OnInteractionExecuted.Broadcast(InteractedActor);
 }
 
 void UMD_PlayerInteractionComponent::Inspect()
@@ -93,14 +95,32 @@ void UMD_PlayerInteractionComponent::Inspect()
 
 void UMD_PlayerInteractionComponent::ClearInteractionFocus()
 {
-	if (CurrentFocusedInteractable &&
-		CurrentFocusedInteractable->Implements<UMD_InteractInterface>())
+	SetInteractionFocus(nullptr);
+}
+
+void UMD_PlayerInteractionComponent::SetInteractionFocus(AActor* NewInteractable)
+{
+	if (CurrentFocusedInteractable == NewInteractable)
 	{
-		IMD_InteractInterface::Execute_SetInteractPromptVisible(CurrentFocusedInteractable, false);
-		IMD_InteractInterface::Execute_Highlight(CurrentFocusedInteractable, false);
+		return;
 	}
 
-	CurrentFocusedInteractable = nullptr;
+	AActor* PreviousInteractable = CurrentFocusedInteractable;
+	if (IsValid(PreviousInteractable) &&
+		PreviousInteractable->Implements<UMD_InteractInterface>())
+	{
+		IMD_InteractInterface::Execute_SetInteractPromptVisible(PreviousInteractable, false);
+		IMD_InteractInterface::Execute_Highlight(PreviousInteractable, false);
+	}
+
+	CurrentFocusedInteractable = NewInteractable;
+	if (IsValid(CurrentFocusedInteractable))
+	{
+		IMD_InteractInterface::Execute_SetInteractPromptVisible(CurrentFocusedInteractable, true);
+		IMD_InteractInterface::Execute_Highlight(CurrentFocusedInteractable, true);
+	}
+
+	OnInteractionFocusChanged.Broadcast(PreviousInteractable, CurrentFocusedInteractable);
 }
 
 void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
@@ -161,15 +181,5 @@ void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 		return;
 	}
 
-	if (CurrentFocusedInteractable == HitActor)
-	{
-		return;
-	}
-
-	ClearInteractionFocus();
-
-	CurrentFocusedInteractable = HitActor;
-	
-	IMD_InteractInterface::Execute_SetInteractPromptVisible(CurrentFocusedInteractable, true);
-	IMD_InteractInterface::Execute_Highlight(CurrentFocusedInteractable, true);
+	SetInteractionFocus(HitActor);
 }
