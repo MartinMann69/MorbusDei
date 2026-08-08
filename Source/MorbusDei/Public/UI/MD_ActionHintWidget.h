@@ -55,6 +55,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|UI|Action Hint|Text")
 	FText ActionText;
 
+	/** Font scale used when the displayed key text contains an explicit line break. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|UI|Action Hint|Text", meta = (ClampMin = "0.25", ClampMax = "1.0"))
+	float CompactKeyFontScale = 0.62f;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|UI|Action Hint|Feedback")
 	TObjectPtr<USoundBase> HandledSound = nullptr;
 
@@ -80,4 +84,6 @@ private:
 
 	FTSTicker::FDelegateHandle PulseTickerHandle;
 	float PulseElapsed = 0.0f;
+	FSlateFontInfo DefaultKeyFont;
+	bool bHasCachedDefaultKeyFont = false;
 };

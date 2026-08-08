@@ -24,6 +24,12 @@ UMD_ActionHintWidget::UMD_ActionHintWidget(const FObjectInitializer& ObjectIniti
 void UMD_ActionHintWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+	if (BackKeyText)
+	{
+		DefaultKeyFont = BackKeyText->GetFont();
+		bHasCachedDefaultKeyFont = true;
+	}
+
 	if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
 		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
 		: nullptr)
@@ -106,7 +112,36 @@ void UMD_ActionHintWidget::RefreshPresentation()
 	const bool bUsingGamepad = IsUsingGamepad();
 	if (BackKeyText)
 	{
-		BackKeyText->SetText(bUsingGamepad ? GamepadKeyText : KeyboardKeyText);
+		const FText& KeyText = bUsingGamepad ? GamepadKeyText : KeyboardKeyText;
+		FString DisplayKeyString = KeyText.ToString();
+		FString NormalizedKeyString = DisplayKeyString;
+		NormalizedKeyString.ReplaceInline(TEXT(" "), TEXT(""));
+		NormalizedKeyString.ReplaceInline(TEXT("/"), TEXT(""));
+
+		// Blueprint defaults may still contain the legacy "LT / RT" presentation.
+		// Normalize all supported trigger spellings before applying the compact layout.
+		if (NormalizedKeyString.Equals(TEXT("LTRT"), ESearchCase::IgnoreCase))
+		{
+			DisplayKeyString = FString::Printf(
+				TEXT("%s\n%s"),
+				*NormalizedKeyString.Left(2),
+				*NormalizedKeyString.Right(2));
+		}
+
+		BackKeyText->SetText(FText::FromString(DisplayKeyString));
+
+		if (!bHasCachedDefaultKeyFont)
+		{
+			DefaultKeyFont = BackKeyText->GetFont();
+			bHasCachedDefaultKeyFont = true;
+		}
+
+		FSlateFontInfo KeyFont = DefaultKeyFont;
+		if (DisplayKeyString.Contains(TEXT("\n")))
+		{
+			KeyFont.Size *= CompactKeyFontScale;
+		}
+		BackKeyText->SetFont(KeyFont);
 	}
 	if (BackActionText)
 	{
