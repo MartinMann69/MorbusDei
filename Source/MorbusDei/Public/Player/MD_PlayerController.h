@@ -27,6 +27,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "MD|UI|Pause Menu")
 	bool IsPauseMenuOpen() const;
 
+protected:
+	/** Keeps explicitly pause-safe force feedback running during Unreal's minimal pause tick. */
+	virtual void Tick(float DeltaSeconds) override;
+
 private:
 	friend class UMD_PauseMenuWidget;
 	friend class UMD_MenuLayerScreenWidget;

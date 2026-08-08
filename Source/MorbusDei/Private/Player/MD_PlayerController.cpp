@@ -2,11 +2,28 @@
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Containers/Ticker.h"
+#include "Engine/World.h"
 #include "Input/MD_InputDeviceSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MD_PauseMenuWidget.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMDPlayerController, Log, All);
+
+void AMD_PlayerController::Tick(const float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	const UWorld* World = GetWorld();
+	if (!IsLocalController() || !World || !World->IsPaused() || ShouldPerformFullTickWhenPaused())
+	{
+		return;
+	}
+
+	// APlayerController's minimal pause tick returns before Unreal processes force
+	// feedback. Process only that missing path here; bPlayWhilePaused still decides
+	// which effects are allowed to reach the controller while gameplay is frozen.
+	ProcessForceFeedbackAndHaptics(DeltaSeconds, true);
+}
 
 bool AMD_PlayerController::OpenPauseMenu()
 {
