@@ -2,28 +2,11 @@
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Containers/Ticker.h"
-#include "Engine/World.h"
 #include "Input/MD_InputDeviceSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MD_PauseMenuWidget.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMDPlayerController, Log, All);
-
-void AMD_PlayerController::Tick(const float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-
-	const UWorld* World = GetWorld();
-	if (!IsLocalController() || !World || !World->IsPaused() || ShouldPerformFullTickWhenPaused())
-	{
-		return;
-	}
-
-	// APlayerController's minimal pause tick returns before Unreal processes force
-	// feedback. Process only that missing path here; bPlayWhilePaused still decides
-	// which effects are allowed to reach the controller while gameplay is frozen.
-	ProcessForceFeedbackAndHaptics(DeltaSeconds, true);
-}
 
 bool AMD_PlayerController::OpenPauseMenu()
 {
@@ -190,6 +173,7 @@ bool AMD_PlayerController::ApplyPauseMenuInput(UMD_PauseMenuWidget* PauseMenuWid
 	{
 		return false;
 	}
+	EnablePauseMenuFullTick();
 
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(PauseMenuWidget->TakeWidget());
@@ -245,9 +229,33 @@ bool AMD_PlayerController::RestorePauseMenuFocus()
 void AMD_PlayerController::RestoreGameplayInput()
 {
 	UGameplayStatics::SetGamePaused(this, false);
+	RestorePauseMenuFullTick();
 	SetInputMode(FInputModeGameOnly());
 	bShowMouseCursor = false;
 	FlushPressedKeys();
 	UWidgetBlueprintLibrary::SetFocusToGameViewport();
+}
+
+void AMD_PlayerController::EnablePauseMenuFullTick()
+{
+	if (bPauseMenuOverridesFullTick)
+	{
+		return;
+	}
+
+	bPreviousFullTickWhenPaused = bShouldPerformFullTickWhenPaused;
+	bShouldPerformFullTickWhenPaused = true;
+	bPauseMenuOverridesFullTick = true;
+}
+
+void AMD_PlayerController::RestorePauseMenuFullTick()
+{
+	if (!bPauseMenuOverridesFullTick)
+	{
+		return;
+	}
+
+	bShouldPerformFullTickWhenPaused = bPreviousFullTickWhenPaused;
+	bPauseMenuOverridesFullTick = false;
 }
 

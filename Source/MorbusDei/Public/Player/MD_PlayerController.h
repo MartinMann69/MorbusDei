@@ -27,10 +27,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "MD|UI|Pause Menu")
 	bool IsPauseMenuOpen() const;
 
-protected:
-	/** Keeps explicitly pause-safe force feedback running during Unreal's minimal pause tick. */
-	virtual void Tick(float DeltaSeconds) override;
-
 private:
 	friend class UMD_PauseMenuWidget;
 	friend class UMD_MenuLayerScreenWidget;
@@ -50,10 +46,14 @@ private:
 	bool ApplyPauseMenuInput(UMD_PauseMenuWidget* PauseMenuWidget);
 	bool RestorePauseMenuFocus();
 	void RestoreGameplayInput();
+	void EnablePauseMenuFullTick();
+	void RestorePauseMenuFullTick();
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UMD_PauseMenuWidget> ActivePauseMenuWidget;
 
 	FDelegateHandle CloseTransitionFinishedHandle;
 	EPauseMenuState PauseMenuState = EPauseMenuState::Closed;
+	bool bPauseMenuOverridesFullTick = false;
+	bool bPreviousFullTickWhenPaused = false;
 };
