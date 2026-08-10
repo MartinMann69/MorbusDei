@@ -89,8 +89,10 @@ void UMD_PlayerInteractionComponent::Inspect()
 		return;
 	}
 
-	ClearInteractionFocus();
-	InspectComp->StartInspect(Inspectable);
+	if (InspectComp->StartInspect(Inspectable))
+	{
+		ClearInteractionFocus();
+	}
 }
 
 void UMD_PlayerInteractionComponent::ClearInteractionFocus()
