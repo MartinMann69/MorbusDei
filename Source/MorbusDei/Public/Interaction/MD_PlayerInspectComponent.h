@@ -86,6 +86,8 @@ protected:
 	EMD_InspectState InspectState = EMD_InspectState::Inactive;
 
 	void SetInspectState(EMD_InspectState NewState);
+	bool HasValidInspectSession() const;
+	void ForceCleanupInspection();
 
 	void EnsureInspectPivot();
 	void UpdateInspectPivotLocation();

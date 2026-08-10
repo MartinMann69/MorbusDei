@@ -86,9 +86,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputAction* ZoomAction;
-
-	UPROPERTY(EditAnywhere, Category="Interaction")
-	float InteractDistance = 500.0f;
+	
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);

@@ -33,6 +33,12 @@ void UMD_PlayerInspectComponent::TickComponent(
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (InspectState != EMD_InspectState::Inactive && !HasValidInspectSession())
+	{
+		ForceCleanupInspection();
+		return;
+	}
+
 	switch (InspectState)
 	{
 	case EMD_InspectState::Entering:
@@ -41,7 +47,10 @@ void UMD_PlayerInspectComponent::TickComponent(
 
 	case EMD_InspectState::Active:
 		UpdateSmoothZoom(DeltaTime);
-		UpdateSmoothRotation(DeltaTime);
+		if (InspectState == EMD_InspectState::Active)
+		{
+			UpdateSmoothRotation(DeltaTime);
+		}
 		break;
 
 	case EMD_InspectState::Exiting:
@@ -61,24 +70,24 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 		return false;
 	}
 	
-	if (!Inspectable || !Inspectable->CanInspect())
+	if (!IsValid(Inspectable) || !Inspectable->CanInspect())
 	{
 		return false;
 	}
 
-	if (!OwningPawn)
+	if (!IsValid(OwningPawn))
 	{
 		OwningPawn = Cast<APawn>(GetOwner());
 	}
 
-	if (!OwningPawn || !OwningPawn->GetController())
+	if (!IsValid(OwningPawn) || !OwningPawn->GetController())
 	{
 		return false;
 	}
 
 	EnsureInspectPivot();
 	
-	if (!InspectPivot)
+	if (!IsValid(InspectPivot))
 	{
 		return false;
 	}
@@ -120,7 +129,18 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 
 void UMD_PlayerInspectComponent::EndInspect()
 {
-	if (InspectState == EMD_InspectState::Inactive ||InspectState == EMD_InspectState::Exiting ||!CurrentInspectable ||!InspectPivot)
+	if (InspectState == EMD_InspectState::Inactive)
+	{
+		return;
+	}
+
+	if (!HasValidInspectSession())
+	{
+		ForceCleanupInspection();
+		return;
+	}
+
+	if (InspectState == EMD_InspectState::Exiting)
 	{
 		return;
 	}
@@ -140,14 +160,55 @@ void UMD_PlayerInspectComponent::SetInspectState(EMD_InspectState NewState)
 	SetComponentTickEnabled(InspectState != EMD_InspectState::Inactive);
 }
 
+bool UMD_PlayerInspectComponent::HasValidInspectSession() const
+{
+	return IsValid(CurrentInspectable) && IsValid(InspectPivot);
+}
+
+void UMD_PlayerInspectComponent::ForceCleanupInspection()
+{
+	UMD_InspectableComponent* InspectableToRestore = IsValid(CurrentInspectable)
+		? CurrentInspectable
+		: nullptr;
+
+	CurrentInspectable = nullptr;
+
+	if (IsValid(InspectPivot))
+	{
+		InspectPivot->SetWorldTransform(OriginalPivotTransform);
+	}
+
+	if (InspectableToRestore)
+	{
+		InspectableToRestore->EndInspect();
+	}
+
+	CurrentInspectDistance = 0.f;
+	TargetInspectDistance = 0.f;
+	TransitionElapsed = 0.f;
+	RotationVelocity = FVector2D::ZeroVector;
+	CurrentInspectYaw = 0.f;
+	CurrentInspectPitch = 0.f;
+	OriginalPivotTransform = FTransform::Identity;
+	TransitionStartTransform = FTransform::Identity;
+	TransitionTargetTransform = FTransform::Identity;
+
+	SetInspectState(EMD_InspectState::Inactive);
+}
+
 void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 {
-	if (!CurrentInspectable || !InspectPivot)
+	if (!HasValidInspectSession())
 	{
+		ForceCleanupInspection();
 		return;
 	}
 	
-	UpdateInspectViewFromCamera();
+	if (!UpdateInspectViewFromCamera())
+	{
+		ForceCleanupInspection();
+		return;
+	}
 	TransitionTargetTransform = MakeDesiredPivotTransform(CurrentInspectable);
 
 	TransitionElapsed += DeltaTime;
@@ -172,8 +233,9 @@ void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 
 void UMD_PlayerInspectComponent::UpdateExitTransition(float DeltaTime)
 {
-	if (!CurrentInspectable || !InspectPivot)
+	if (!HasValidInspectSession())
 	{
+		ForceCleanupInspection();
 		return;
 	}
 
@@ -205,7 +267,18 @@ void UMD_PlayerInspectComponent::UpdateExitTransition(float DeltaTime)
 
 void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 {
-	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot || !CurrentInspectable->CanRotateDuringInspect())
+	if (InspectState != EMD_InspectState::Active)
+	{
+		return;
+	}
+
+	if (!HasValidInspectSession())
+	{
+		ForceCleanupInspection();
+		return;
+	}
+
+	if (!CurrentInspectable->CanRotateDuringInspect())
 	{
 		return;
 	}
@@ -220,7 +293,13 @@ void UMD_PlayerInspectComponent::RotateInspectedItem(const FVector2D& LookInput)
 
 void UMD_PlayerInspectComponent::UpdateSmoothRotation(float DeltaTime)
 {
-	if (!CurrentInspectable || !InspectPivot || RotationVelocity.IsNearlyZero())
+	if (!HasValidInspectSession())
+	{
+		ForceCleanupInspection();
+		return;
+	}
+
+	if (RotationVelocity.IsNearlyZero())
 	{
 		return;
 	}
@@ -255,8 +334,14 @@ void UMD_PlayerInspectComponent::UpdateSmoothRotation(float DeltaTime)
 
 void UMD_PlayerInspectComponent::ZoomInspectedItem(float ZoomInput)
 {
-	if (InspectState != EMD_InspectState::Active || !CurrentInspectable || !InspectPivot)
+	if (InspectState != EMD_InspectState::Active)
 	{
+		return;
+	}
+
+	if (!HasValidInspectSession())
+	{
+		ForceCleanupInspection();
 		return;
 	}
 
@@ -269,12 +354,17 @@ void UMD_PlayerInspectComponent::ZoomInspectedItem(float ZoomInput)
 
 void UMD_PlayerInspectComponent::UpdateSmoothZoom(float DeltaTime)
 {
-	if (!CurrentInspectable || !InspectPivot)
+	if (!HasValidInspectSession())
 	{
+		ForceCleanupInspection();
 		return;
 	}
 
-	UpdateInspectViewFromCamera();
+	if (!UpdateInspectViewFromCamera())
+	{
+		ForceCleanupInspection();
+		return;
+	}
 	
 	const float NewDistance = FMath::FInterpTo(CurrentInspectDistance, TargetInspectDistance, DeltaTime, ZoomInterpSpeed);
 
