@@ -77,5 +77,5 @@ private:
 
 	double ActiveHighPriorityEndTime = 0.0;
 	bool bControllerVibrationEnabled = true;
-	float ControllerVibrationStrength = 1.0f;
+	float ControllerVibrationStrength = 0.5f;
 };

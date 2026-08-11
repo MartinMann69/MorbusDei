@@ -1,9 +1,7 @@
 #include "Interaction/MD_Interactable.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
-#include "Components/WidgetComponent.h"
 #include "Interaction/MD_HighlightComponent.h"
-#include "Interaction/MD_InteractPromptComponent.h"
 #include "Interaction/MD_InspectableComponent.h"
 #include "Audio/MD_AudioZone.h"
 #include "Kismet/GameplayStatics.h"
@@ -21,19 +19,8 @@ AMD_Interactable::AMD_Interactable()
 	ToggleableObjects = CreateDefaultSubobject<USceneComponent>(TEXT("ToggleableObjects"));
 	ToggleableObjects->SetupAttachment(Root);
 
-	InteractPromptWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("InteractPromptWidget"));
-	InteractPromptWidget->SetupAttachment(RootComponent);
-	InteractPromptWidget->SetRelativeLocation(FVector(0.f, 0.f, 120.f));
-	InteractPromptWidget->SetWidgetSpace(EWidgetSpace::Screen); // or World
-	InteractPromptWidget->SetDrawSize(FVector2D(200.f, 200.f));
-	InteractPromptWidget->SetVisibility(false);
-	InteractPromptWidget->SetPivot(FVector2D(0, 0));
-
 	HighlightComponent = CreateDefaultSubobject<UMD_HighlightComponent>(TEXT("HighlightComponent"));
 	HighlightComponent->SetHighlightRoot(HighlightedObjects);
-
-	InteractPromptComponent = CreateDefaultSubobject<UMD_InteractPromptComponent>(TEXT("InteractPromptComponent"));
-	InteractPromptComponent->SetPromptWidget(InteractPromptWidget);
 
 	InspectableComponent = CreateDefaultSubobject<UMD_InspectableComponent>(TEXT("InspectableComponent"));
 }
@@ -94,12 +81,8 @@ void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 	}
 }
 
-void AMD_Interactable::SetInteractPromptVisible_Implementation(bool bVisible)
+void AMD_Interactable::SetInteractPromptVisible_Implementation(bool)
 {
-	if (InteractPromptComponent)
-	{
-		InteractPromptComponent->SetPromptVisible(bVisible);
-	}
 }
 
 bool AMD_Interactable::CanInteract_Implementation() const

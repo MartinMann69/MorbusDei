@@ -12,7 +12,7 @@ void UMD_GameUserSettings::SetToDefaults()
 {
 	Super::SetToDefaults();
 	bControllerVibrationEnabled = true;
-	ControllerVibrationStrength = 1.0f;
+	ControllerVibrationStrength = 0.5f;
 }
 
 void UMD_GameUserSettings::SetControllerVibrationEnabled(const bool bEnabled)

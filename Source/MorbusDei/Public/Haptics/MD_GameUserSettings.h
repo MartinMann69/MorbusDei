@@ -27,5 +27,5 @@ private:
 	bool bControllerVibrationEnabled = true;
 
 	UPROPERTY(Config)
-	float ControllerVibrationStrength = 1.0f;
+	float ControllerVibrationStrength = 0.5f;
 };

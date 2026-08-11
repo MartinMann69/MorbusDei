@@ -12,7 +12,7 @@ struct MORBUSDEI_API FMDResolutionOptionSet
 {
 	GENERATED_BODY()
 
-	/** Resolutions that may be applied through UGameUserSettings. */
+	/** Platform-reported resolutions that satisfy Nautilus' supported display policy. */
 	UPROPERTY(BlueprintReadOnly, Category = "Nautilus|Settings|Graphics")
 	TArray<FIntPoint> Resolutions;
 
@@ -24,7 +24,7 @@ struct MORBUSDEI_API FMDResolutionOptionSet
 	UPROPERTY(BlueprintReadOnly, Category = "Nautilus|Settings|Graphics")
 	int32 SelectedIndex = INDEX_NONE;
 
-	/** Currently confirmed resolution, or the safest platform fallback when settings are invalid. */
+	/** Currently confirmed supported resolution, or the closest supported platform fallback. */
 	UPROPERTY(BlueprintReadOnly, Category = "Nautilus|Settings|Graphics")
 	FIntPoint SelectedResolution = FIntPoint::ZeroValue;
 
@@ -44,11 +44,10 @@ class MORBUSDEI_API UMDGraphicsSettingsLibrary : public UBlueprintFunctionLibrar
 
 public:
 	/**
-	 * Builds a stable, de-duplicated resolution list and selects the confirmed video mode.
-	 * The confirmed resolution is added when the platform list does not contain it, which
-	 * keeps valid windowed/custom resolutions visible instead of falling back to index 0.
+	 * Builds a stable, de-duplicated list of supported platform resolutions and selects
+	 * the confirmed video mode. Unsupported or unavailable selections use the closest
+	 * reported fallback without applying it until the user confirms the settings.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Nautilus|Settings|Graphics")
 	static FMDResolutionOptionSet BuildCurrentResolutionOptions();
 };
-
