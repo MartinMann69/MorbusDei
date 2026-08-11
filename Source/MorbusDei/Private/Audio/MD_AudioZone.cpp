@@ -81,11 +81,6 @@ void AMD_AudioZone::PlayZoneSound()
 		return;
 	}
 	
-	if (AudioComponent->IsPlaying())
-	{
-		return;
-	}
-	
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
 	bSkipRequested = false;
@@ -107,6 +102,13 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		AudioComponent->Play();
 	}
+
+	if (!AudioComponent->IsPlaying())
+	{
+		return;
+	}
+
+	OnZonePlaybackStarted.Broadcast();
 	
 	BroadcastVoiceLinePlaybackState();
 

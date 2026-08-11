@@ -12,6 +12,7 @@
 #include "InputCoreTypes.h"
 #include "UI/Focus/GameUIFocusInputKeys.h"
 #include "UI/Focus/GameUIFocusInputDeviceTracker.h"
+#include "UI/Focus/GameUIFocusFeedback.h"
 #include "UI/Focus/GameUIFocusItemWidgetBase.h"
 #include "UI/Focus/GameUIFocusPageInterface.h"
 #include "UI/Focus/GameUIFocusPageWidgetBase.h"
@@ -50,6 +51,7 @@ bool IsFocusTraceKey(const FKey& Key)
 
 UGameUIFocusScreenWidgetBase::UGameUIFocusScreenWidgetBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, InputMode(EGameUIFocusInputMode::Pointer)
 {
 	SetIsFocusable(true);
 }
@@ -58,16 +60,16 @@ void UGameUIFocusScreenWidgetBase::NativeConstruct()
 {
 	Super::NativeConstruct();
 	RebuildNavigationEntriesFromBindings();
-	PointerInputStateChangedHandle = GameUIFocusInputDeviceTracker::OnPointerInputStateChanged().AddUObject(
+	InputModeChangedHandle = GameUIFocusInputDeviceTracker::OnInputModeChanged().AddUObject(
 		this,
-		&UGameUIFocusScreenWidgetBase::HandleGlobalPointerInputStateChanged);
-	SetPointerInputActive(GameUIFocusInputDeviceTracker::IsPointerInputActive());
+		&UGameUIFocusScreenWidgetBase::HandleGlobalInputModeChanged);
+	SetInputMode(GameUIFocusInputDeviceTracker::GetInputMode());
 }
 
 void UGameUIFocusScreenWidgetBase::NativeDestruct()
 {
-	GameUIFocusInputDeviceTracker::OnPointerInputStateChanged().Remove(PointerInputStateChangedHandle);
-	PointerInputStateChangedHandle.Reset();
+	GameUIFocusInputDeviceTracker::OnInputModeChanged().Remove(InputModeChangedHandle);
+	InputModeChangedHandle.Reset();
 	++PointerInputReapplySerial;
 	++FocusScreenActivationSerial;
 	++FocusRequestSerial;
@@ -682,8 +684,19 @@ void UGameUIFocusScreenWidgetBase::NotifyContentWidgetFocused(UWidget* Widget)
 		return;
 	}
 
+	const bool bSelectionChanged = LastFocusedWidget.IsValid() && LastFocusedWidget.Get() != Widget;
 	LastFocusedWidget = Widget;
 	SetCurrentFocusZone(EGameUIFocusZone::Content);
+	if (bSelectionChanged)
+	{
+		GameUIFocusFeedback::OnSelectionChanged().Broadcast(this);
+	}
+}
+
+void UGameUIFocusScreenWidgetBase::BroadcastBackActionHandled(const EGameUIFocusZone SourceZone)
+{
+	OnBackActionHandled.Broadcast(SourceZone);
+	GameUIFocusFeedback::OnBackHandled().Broadcast(this);
 }
 
 void UGameUIFocusScreenWidgetBase::NotifyNavigationWidgetFocused(UWidget* Widget)
@@ -970,16 +983,19 @@ UWidget* UGameUIFocusScreenWidgetBase::GetActiveFocusPageWidget() const
 FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
-	if (Key.IsGamepadKey())
-	{
-		NotifyGamepadInput();
-	}
-
 	const EUINavigation NavigationDirection = FSlateApplication::IsInitialized()
 		? FSlateApplication::Get().GetNavigationDirectionFromKey(InKeyEvent)
 		: EUINavigation::Invalid;
 	const bool bAcceptAction = GameUIFocusInputKeys::IsAcceptAction(InKeyEvent);
 	const bool bBackAction = GameUIFocusInputKeys::IsBackAction(InKeyEvent);
+	if (Key.IsGamepadKey())
+	{
+		NotifyGamepadInput();
+	}
+	else if (NavigationDirection != EUINavigation::Invalid || bAcceptAction || bBackAction)
+	{
+		NotifyNavigationInput();
+	}
 	if (IsFocusTraceKey(Key))
 	{
 		UE_LOG(LogGameUIFocus, VeryVerbose,
@@ -997,6 +1013,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleNavigationZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Navigation);
+			}
+			return FReply::Handled();
+		}
+
+		if (bBackAction && HandleRootBackAction())
+		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Navigation);
 			return FReply::Handled();
 		}
 
@@ -1028,11 +1054,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleContentZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Content);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnToNavigationZone())
 		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Content);
 			return FReply::Handled();
 		}
 	}
@@ -1040,11 +1071,16 @@ FReply UGameUIFocusScreenWidgetBase::NativeOnPreviewKeyDown(const FGeometry& InG
 	{
 		if (HandleModalZoneKey(Key))
 		{
+			if (bBackAction)
+			{
+				BroadcastBackActionHandled(EGameUIFocusZone::Modal);
+			}
 			return FReply::Handled();
 		}
 
 		if (bBackAction && ReturnFromModalZone())
 		{
+			BroadcastBackActionHandled(EGameUIFocusZone::Modal);
 			return FReply::Handled();
 		}
 	}
@@ -1105,38 +1141,50 @@ void UGameUIFocusScreenWidgetBase::NotifyGamepadInput(const float InputStrength)
 		return;
 	}
 
-	GameUIFocusInputDeviceTracker::SetPointerInputActive(false);
-	SetPointerInputActive(false);
+	GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::GamepadNavigation);
+	SetInputMode(EGameUIFocusInputMode::GamepadNavigation);
+}
+
+void UGameUIFocusScreenWidgetBase::NotifyNavigationInput()
+{
+	GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::KeyboardNavigation);
+	SetInputMode(EGameUIFocusInputMode::KeyboardNavigation);
 }
 
 void UGameUIFocusScreenWidgetBase::NotifyPointerInput()
 {
-	GameUIFocusInputDeviceTracker::SetPointerInputActive(true);
-	SetPointerInputActive(true);
+	GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::Pointer);
+	SetInputMode(EGameUIFocusInputMode::Pointer);
 }
 
-void UGameUIFocusScreenWidgetBase::SetPointerInputActive(const bool bActive)
+void UGameUIFocusScreenWidgetBase::SetInputMode(const EGameUIFocusInputMode NewMode)
 {
-	const bool bInputDeviceChanged = bPointerInputActive != bActive;
-	bPointerInputActive = bActive;
+	const bool bInputModeChanged = InputMode != NewMode;
+	const bool bWasPointerInputActive = bPointerInputActive;
+	InputMode = NewMode;
+	bPointerInputActive = InputMode == EGameUIFocusInputMode::Pointer;
 	ApplyMouseCursorVisibility();
 	SchedulePointerInputStateReapply();
-	if (!bInputDeviceChanged)
+	if (!bInputModeChanged)
 	{
 		return;
 	}
 
-	RefreshPointerInteractionState();
+	if (bWasPointerInputActive != bPointerInputActive)
+	{
+		RefreshPointerInteractionState();
+	}
 	UE_LOG(LogGameUIFocus, VeryVerbose,
-		TEXT("GameUIFocusTrace InputDeviceChanged Screen=%s PointerActive=%d CursorManaged=%d"),
+		TEXT("GameUIFocusTrace InputModeChanged Screen=%s Mode=%d PointerActive=%d CursorManaged=%d"),
 		*GetNameSafe(this),
+		static_cast<uint8>(InputMode),
 		bPointerInputActive ? 1 : 0,
 		bManageMouseCursorForInputDevice ? 1 : 0);
 }
 
-void UGameUIFocusScreenWidgetBase::HandleGlobalPointerInputStateChanged(const bool bActive)
+void UGameUIFocusScreenWidgetBase::HandleGlobalInputModeChanged(const EGameUIFocusInputMode NewMode)
 {
-	SetPointerInputActive(bActive);
+	SetInputMode(NewMode);
 }
 
 void UGameUIFocusScreenWidgetBase::ApplyMouseCursorVisibility() const
@@ -1148,7 +1196,7 @@ void UGameUIFocusScreenWidgetBase::ApplyMouseCursorVisibility() const
 
 	if (APlayerController* PlayerController = GetOwningPlayer())
 	{
-		PlayerController->bShowMouseCursor = bPointerInputActive;
+		PlayerController->bShowMouseCursor = InputMode != EGameUIFocusInputMode::GamepadNavigation;
 	}
 }
 
@@ -1326,6 +1374,11 @@ bool UGameUIFocusScreenWidgetBase::HandleModalZoneKey_Implementation(FKey Key)
 	return false;
 }
 
+bool UGameUIFocusScreenWidgetBase::HandleRootBackAction_Implementation()
+{
+	return false;
+}
+
 void UGameUIFocusScreenWidgetBase::HandleFocusZoneChanged_Implementation(EGameUIFocusZone PreviousZone, EGameUIFocusZone NewZone)
 {
 }
@@ -1365,6 +1418,7 @@ void UGameUIFocusScreenWidgetBase::SetActiveNavigationIndex(int32 NewIndex)
 	ActiveNavigationIndex = NewIndex;
 	OnNavigationIndexChanged.Broadcast(PreviousIndex, NewIndex);
 	HandleNavigationIndexChanged(PreviousIndex, NewIndex);
+	GameUIFocusFeedback::OnSelectionChanged().Broadcast(this);
 }
 
 int32 UGameUIFocusScreenWidgetBase::GetPageIndexForNavigationIndex(int32 NavigationIndex) const

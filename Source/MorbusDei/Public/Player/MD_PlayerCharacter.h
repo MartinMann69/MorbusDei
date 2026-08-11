@@ -4,7 +4,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
-#include "Blueprint/UserWidget.h"
 #include "Interaction/MD_PlayerInteractionComponent.h"
 #include "MD_PlayerCharacter.generated.h"
 
@@ -16,8 +15,8 @@ class UCameraComponent;
 class USpringArmComponent;
 class UMD_PlayerInteractionComponent;
 class UMD_PlayerInspectComponent;
-
-class UUserWidget;
+class UMD_PlayerHapticFeedbackComponent;
+class UMD_FoleyEventRelayComponent;
 
 struct FInputActionValue;
 
@@ -38,12 +37,6 @@ public:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> PauseMenuWidgetClass;
-
-	UPROPERTY()
-	UUserWidget* PauseMenuWidget;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	float MouseSensitivity = 1.0f;
@@ -68,6 +61,14 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	UMD_PlayerInspectComponent* InspectComp;
 
+	/** Neutral event bridge shared by Foley and player feedback systems. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Feedback")
+	UMD_FoleyEventRelayComponent* FoleyEventRelayComp;
+
+	/** Converts local player feedback events into subtle controller haptics. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Haptics")
+	UMD_PlayerHapticFeedbackComponent* HapticFeedbackComp;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -77,9 +78,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputAction* LookAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
-	UInputAction* MenuAction;
-
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* InteractAction;
 
@@ -88,13 +86,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input")
 	UInputAction* ZoomAction;
-
-	UPROPERTY(EditAnywhere, Category="Interaction")
-	float InteractDistance = 500.0f;
+	
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Zoom(const FInputActionValue& Value);
-	void ToggleEscapeMenu();
 	
 };

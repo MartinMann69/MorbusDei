@@ -17,6 +17,7 @@ class UPrimitiveComponent;
 class UNiagaraSystem;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FMDVoiceLinePlaybackChanged, bool);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMDZonePlaybackStarted);
 
 UENUM(BlueprintType)
 enum class EMD_AudioZoneNiagaraSpawnTarget : uint8
@@ -50,6 +51,10 @@ public:
 	static bool IsAnyVoiceLinePlaying();
 	
 	static FMDVoiceLinePlaybackChanged OnVoiceLinePlaybackChanged;
+
+	/** Neutral hook for story adapters; broadcast only after audio playback starts. */
+	UPROPERTY(BlueprintAssignable, Category = "MD|Audio")
+	FMDZonePlaybackStarted OnZonePlaybackStarted;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Audio|Components")
