@@ -1,6 +1,8 @@
 #include "Video/MD_VideoManager.h"
 
 #include "MediaPlayer.h"
+#include "MediaSoundComponent.h"
+#include "MediaTexture.h"
 #include "MediaSource.h"
 #include "AudioDevice.h"
 #include "AudioDeviceHandle.h"
@@ -8,6 +10,28 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "UObject/UObjectIterator.h"
+
+
+void ResetMediaTexturesForPlayer(UMediaPlayer* MediaPlayer)
+{
+	for (TObjectIterator<UMediaTexture> It; It; ++It)
+	{
+		UMediaTexture* MediaTexture = *It;
+		if (MediaTexture->HasAnyFlags(RF_ClassDefaultObject) || MediaTexture->GetMediaPlayer() != MediaPlayer)
+		{
+			continue;
+		}
+
+		// Drop samples left by the previous source and rebuild the resource
+		// black before the widget can render it again.
+		MediaTexture->SetMediaPlayer(nullptr);
+		MediaTexture->AutoClear = true;
+		MediaTexture->ClearColor = FLinearColor::Black;
+		MediaTexture->UpdateResource();
+		MediaTexture->SetMediaPlayer(MediaPlayer);
+	}
+}
 
 AMD_VideoManager::AMD_VideoManager()
 {
@@ -22,15 +46,23 @@ bool AMD_VideoManager::PlayVideo(
 	bool bStopExistingSounds)
 {
 	if (bPlaying || !Source || !MediaPlayer || !VideoWidgetClass)
+	{
 		return false;
+	}
 
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (!PC)
+	{
 		return false;
+	}
 
 	ActiveWidget = CreateWidget<UUserWidget>(PC, VideoWidgetClass);
 	if (!ActiveWidget)
+	{
 		return false;
+	}
+
+	ResetMediaTexturesForPlayer(MediaPlayer);
 
 	if (bStopExistingSounds)
 	{
@@ -39,6 +71,16 @@ bool AMD_VideoManager::PlayVideo(
 		if (AudioDevice.IsValid())
 		{
 			AudioDevice->StopAllSounds(true);
+		}
+
+		// StopAllSounds also stops the Media Sound Component that outputs the
+		// video's audio. Reset it so the newly opened media can produce sound.
+		if (UMediaSoundComponent* MediaSoundComponent =
+			FindComponentByClass<UMediaSoundComponent>())
+		{
+			MediaSoundComponent->Deactivate();
+			MediaSoundComponent->SetMediaPlayer(MediaPlayer);
+			MediaSoundComponent->Activate(true);
 		}
 	}
 	
@@ -52,7 +94,9 @@ bool AMD_VideoManager::PlayVideo(
 	PC->SetIgnoreLookInput(true);
 
 	if (ACharacter* Character = Cast<ACharacter>(PC->GetPawn()))
+	{
 		Character->GetCharacterMovement()->StopMovementImmediately();
+	}
 
 	ActiveWidget->AddToViewport(1000);
 
@@ -62,10 +106,8 @@ bool AMD_VideoManager::PlayVideo(
 	PC->SetInputMode(InputMode);
 	ActiveWidget->SetKeyboardFocus();
 
-	MediaPlayer->OnEndReached.AddDynamic(
-		this, &AMD_VideoManager::HandleEndReached);
-	MediaPlayer->OnMediaOpenFailed.AddDynamic(
-		this, &AMD_VideoManager::HandleOpenFailed);
+	MediaPlayer->OnEndReached.AddDynamic(this, &AMD_VideoManager::HandleEndReached);
+	MediaPlayer->OnMediaOpenFailed.AddDynamic(this, &AMD_VideoManager::HandleOpenFailed);
 
 	MediaPlayer->PlayOnOpen = true;
 	MediaPlayer->SetLooping(false);
@@ -82,7 +124,9 @@ bool AMD_VideoManager::PlayVideo(
 void AMD_VideoManager::SkipVideo()
 {
 	if (bPlaying && bCanCurrentlySkip)
+	{
 		FinishVideo();
+	}
 }
 
 void AMD_VideoManager::HandleEndReached()
@@ -99,15 +143,15 @@ void AMD_VideoManager::HandleOpenFailed(FString FailedUrl)
 void AMD_VideoManager::FinishVideo()
 {
 	if (!bPlaying)
+	{
 		return;
+	}
 
 	const FName FinishedVideoId = ActiveVideoId;
 	bPlaying = false;
 
-	MediaPlayer->OnEndReached.RemoveDynamic(
-		this, &AMD_VideoManager::HandleEndReached);
-	MediaPlayer->OnMediaOpenFailed.RemoveDynamic(
-		this, &AMD_VideoManager::HandleOpenFailed);
+	MediaPlayer->OnEndReached.RemoveDynamic(this, &AMD_VideoManager::HandleEndReached);
+	MediaPlayer->OnMediaOpenFailed.RemoveDynamic(this, &AMD_VideoManager::HandleOpenFailed);
 	MediaPlayer->Close();
 
 	if (ActiveWidget)
@@ -116,8 +160,7 @@ void AMD_VideoManager::FinishVideo()
 		ActiveWidget = nullptr;
 	}
 
-	if (APlayerController* PC = ActivePlayerController.Get();
-		PC && bRestoreControlAfterwards)
+	if (APlayerController* PC = ActivePlayerController.Get(); PC && bRestoreControlAfterwards)
 	{
 		PC->SetIgnoreMoveInput(false);
 		PC->SetIgnoreLookInput(false);
