@@ -2,9 +2,9 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/MeshComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Components/RectLightComponent.h"
 
 AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 {
@@ -17,7 +17,7 @@ AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 
 	PreviewLight = CreateDefaultSubobject<USceneComponent>(TEXT("PreviewLight"));
 	PreviewLight->SetupAttachment(RootComponent);
-	
+
 	PreviewPivot = CreateDefaultSubobject<USceneComponent>(TEXT("PreviewPivot"));
 	PreviewPivot->SetupAttachment(RootComponent);
 
@@ -180,20 +180,12 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	if (GetPreviewActorBounds(CurrentPreviewActor, MeshCenter, MeshExtent))
 	{
 		const FVector Offset = SpawnPoint->GetComponentLocation() - MeshCenter;
-		CurrentPreviewActor->SetActorLocation(
-			CurrentPreviewActor->GetActorLocation() + Offset,
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics
-		);
+		CurrentPreviewActor->SetActorLocation(CurrentPreviewActor->GetActorLocation() + Offset, false, nullptr, ETeleportType::TeleportPhysics);
 
 		DesiredZoomDistance = GetAutomaticZoomDistance(MeshExtent);
 	}
 
-	CurrentPreviewActor->AttachToComponent(
-		PreviewPivot,
-		FAttachmentTransformRules::KeepWorldTransform
-	);
+	CurrentPreviewActor->AttachToComponent(PreviewPivot, FAttachmentTransformRules::KeepWorldTransform);
 
 	SetZoomDistanceImmediate(DesiredZoomDistance);
 	InitialPreviewZoomDistance = DesiredZoomDistance;
@@ -259,7 +251,7 @@ void AMD_MenuPreviewRig::PanPreview(float HorizontalDirection, float VerticalDir
 	}
 	const float PanMagnitude = FMath::Clamp(PanInput.Size(), 0.0f, 1.0f);
 
-	const FVector PanWorldDirection = PreviewCamera
+	const FVector PanWorldDirection = PreviewCamera 
 		? PreviewCamera->GetRightVector() * PanInput.X + PreviewCamera->GetUpVector() * PanInput.Y
 		: GetActorRightVector() * PanInput.X + GetActorUpVector() * PanInput.Y;
 
@@ -269,9 +261,8 @@ void AMD_MenuPreviewRig::PanPreview(float HorizontalDirection, float VerticalDir
 	}
 
 	const USceneComponent* AttachParent = SpringArm->GetAttachParent();
-	const FVector LocalPanDelta = AttachParent
-		? AttachParent->GetComponentTransform().InverseTransformVectorNoScale(
-			PanWorldDirection.GetSafeNormal() * CameraPanSpeed * PanMagnitude * DeltaSeconds)
+	const FVector LocalPanDelta = AttachParent 
+		? AttachParent->GetComponentTransform().InverseTransformVectorNoScale(PanWorldDirection.GetSafeNormal() * CameraPanSpeed * PanMagnitude * DeltaSeconds)
 		: PanWorldDirection.GetSafeNormal() * CameraPanSpeed * PanMagnitude * DeltaSeconds;
 
 	TargetCameraPanOffset = (TargetCameraPanOffset + LocalPanDelta).GetClampedToMaxSize(MaxCameraPanOffset);
@@ -308,10 +299,7 @@ float AMD_MenuPreviewRig::GetNormalizedZoomDistance() const
 		return 1.0f;
 	}
 
-	return FMath::GetMappedRangeValueClamped(
-		FVector2D(MinimumDistance, MaximumDistance),
-		FVector2D(0.0f, 1.0f),
-		CurrentZoomDistance);
+	return FMath::GetMappedRangeValueClamped(FVector2D(MinimumDistance, MaximumDistance), FVector2D(0.0f, 1.0f), CurrentZoomDistance);
 }
 
 bool AMD_MenuPreviewRig::GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
@@ -377,9 +365,7 @@ FVector AMD_MenuPreviewRig::GetPreviewFramingLocalOffset() const
 		: GetActorRightVector() * ScaledFramingOffset.X + GetActorUpVector() * ScaledFramingOffset.Y;
 
 	const USceneComponent* PivotParent = PreviewPivot ? PreviewPivot->GetAttachParent() : nullptr;
-	return PivotParent
-		? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(FramingWorldOffset)
-		: FramingWorldOffset;
+	return PivotParent ? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(FramingWorldOffset) : FramingWorldOffset;
 }
 
 void AMD_MenuPreviewRig::SetZoomDistanceImmediate(float Distance)
@@ -416,9 +402,7 @@ void AMD_MenuPreviewRig::ApplyZoomDistance()
 	}
 
 	const USceneComponent* PivotParent = PreviewPivot->GetAttachParent();
-	const FVector LocalZoomOffset = PivotParent
-		? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(ZoomWorldOffset)
-		: ZoomWorldOffset;
+	const FVector LocalZoomOffset = PivotParent ? PivotParent->GetComponentTransform().InverseTransformVectorNoScale(ZoomWorldOffset) : ZoomWorldOffset;
 	const FVector LocalPlacementOffset = GetPreviewFramingLocalOffset() + LocalZoomOffset;
 
 	PreviewPivot->SetRelativeLocation(DefaultPreviewPivotRelativeLocation + LocalPlacementOffset);

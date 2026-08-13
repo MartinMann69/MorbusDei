@@ -1,9 +1,9 @@
 #include "Interaction/MD_Interactable.h"
-#include "Components/StaticMeshComponent.h"
+
+#include "Audio/MD_AudioZone.h"
 #include "Engine/Engine.h"
 #include "Interaction/MD_HighlightComponent.h"
 #include "Interaction/MD_InspectableComponent.h"
-#include "Audio/MD_AudioZone.h"
 #include "Kismet/GameplayStatics.h"
 
 AMD_Interactable::AMD_Interactable()
@@ -37,14 +37,8 @@ void AMD_Interactable::BeginPlay()
 
 void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 {
-	UE_LOG(LogTemp, Warning, TEXT("%s interacted with %s"),*GetNameSafe(Interactor),*GetNameSafe(this));
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Interacted with %s"), *GetNameSafe(this)));
-	}
-	
 	const bool bVoiceoverBlocked = IsVoiceoverAudioBlocked();
-	
+
 	if (!bVoiceoverBlocked)
 	{
 		PlayOneShotAtSelf(InteractionSound);
@@ -66,12 +60,12 @@ void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 			}
 		}
 	}
-	
+
 	if (!ToggleableObjects)
 	{
 		return;
 	}
-	
+
 	TArray<USceneComponent*> ToggleChildComponents;
 	ToggleableObjects->GetChildrenComponents(true, ToggleChildComponents);
 
@@ -79,10 +73,6 @@ void AMD_Interactable::Interact_Implementation(APawn* Interactor)
 	{
 		Child->ToggleVisibility();
 	}
-}
-
-void AMD_Interactable::SetInteractPromptVisible_Implementation(bool)
-{
 }
 
 bool AMD_Interactable::CanInteract_Implementation() const
@@ -122,7 +112,7 @@ void AMD_Interactable::PlayAssignedAudioZone(APawn* Interactor)
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		SpawnedAudioZone = GetWorld()->SpawnActor<AMD_AudioZone>(AudioZoneClass, GetActorTransform(), SpawnParams);
-		
+
 		if (IsValid(SpawnedAudioZone))
 		{
 			SpawnedAudioZone->OnDestroyed.AddDynamic(this, &AMD_Interactable::HandleSpawnedAudioZoneDestroyed);
@@ -155,4 +145,3 @@ bool AMD_Interactable::IsVoiceoverAudioBlocked() const
 {
 	return bVoiceoverStartPending || (IsValid(SpawnedAudioZone) && SpawnedAudioZone->IsZoneSoundPlaying());
 }
-

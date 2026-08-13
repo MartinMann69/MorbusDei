@@ -42,9 +42,7 @@ namespace MDGraphicsSettings
 		return SupportedResolutions.Contains(Resolution);
 	}
 
-	void AddSupportedUniqueResolutions(
-		const TArray<FIntPoint>& Source,
-		TArray<FIntPoint>& Destination)
+	void AddSupportedUniqueResolutions(const TArray<FIntPoint>& Source, TArray<FIntPoint>& Destination)
 	{
 		for (const FIntPoint Resolution : Source)
 		{
@@ -62,17 +60,13 @@ namespace MDGraphicsSettings
 
 	float CalculateResolutionDistance(const FIntPoint Candidate, const FIntPoint Reference)
 	{
-		const float WidthDifference =
-			FMath::Abs(static_cast<float>(Candidate.X - Reference.X)) / static_cast<float>(Reference.X);
-		const float HeightDifference =
-			FMath::Abs(static_cast<float>(Candidate.Y - Reference.Y)) / static_cast<float>(Reference.Y);
+		const float WidthDifference = FMath::Abs(static_cast<float>(Candidate.X - Reference.X)) / static_cast<float>(Reference.X);
+		const float HeightDifference = FMath::Abs(static_cast<float>(Candidate.Y - Reference.Y)) / static_cast<float>(Reference.Y);
 
 		return WidthDifference + HeightDifference;
 	}
 
-	FIntPoint FindClosestSupportedResolution(
-		const TArray<FIntPoint>& Resolutions,
-		const FIntPoint Reference)
+	FIntPoint FindClosestSupportedResolution(const TArray<FIntPoint>& Resolutions, const FIntPoint Reference)
 	{
 		check(!Resolutions.IsEmpty());
 		check(IsValidResolution(Reference));
@@ -84,10 +78,8 @@ namespace MDGraphicsSettings
 		{
 			const FIntPoint Candidate = Resolutions[Index];
 			const float CandidateDistance = CalculateResolutionDistance(Candidate, Reference);
-			const bool bIsCloser = CandidateDistance < ClosestDistance &&
-				!FMath::IsNearlyEqual(CandidateDistance, ClosestDistance);
-			const bool bIsEqualButCheaper = FMath::IsNearlyEqual(CandidateDistance, ClosestDistance) &&
-				GetPixelCount(Candidate) < GetPixelCount(ClosestResolution);
+			const bool bIsCloser = CandidateDistance < ClosestDistance && !FMath::IsNearlyEqual(CandidateDistance, ClosestDistance);
+			const bool bIsEqualButCheaper = FMath::IsNearlyEqual(CandidateDistance, ClosestDistance) && GetPixelCount(Candidate) < GetPixelCount(ClosestResolution);
 
 			if (bIsCloser || bIsEqualButCheaper)
 			{
@@ -104,29 +96,20 @@ namespace MDGraphicsSettings
 		FNumberFormattingOptions NumberFormat;
 		NumberFormat.UseGrouping = false;
 
-		return FText::Format(
-			NSLOCTEXT("MDGraphicsSettings", "ResolutionLabel", "{0} x {1}"),
-			FText::AsNumber(Resolution.X, &NumberFormat),
-			FText::AsNumber(Resolution.Y, &NumberFormat));
+		return FText::Format(NSLOCTEXT("MDGraphicsSettings", "ResolutionLabel", "{0} x {1}"), FText::AsNumber(Resolution.X, &NumberFormat), FText::AsNumber(Resolution.Y, &NumberFormat));
 	}
 
-	FMDResolutionOptionSet BuildOptionSet(
-		const TArray<FIntPoint>& CandidateResolutions,
-		FIntPoint SelectedResolution)
+	FMDResolutionOptionSet BuildOptionSet(const TArray<FIntPoint>& CandidateResolutions, FIntPoint SelectedResolution)
 	{
 		FMDResolutionOptionSet Result;
 		Result.SelectedResolution = SelectedResolution;
 		AddSupportedUniqueResolutions(CandidateResolutions, Result.Resolutions);
 
-		Result.Resolutions.Sort([](const FIntPoint A, const FIntPoint B)
-		{
-			return A.X == B.X ? A.Y < B.Y : A.X < B.X;
-		});
+		Result.Resolutions.Sort([](const FIntPoint A, const FIntPoint B) { return A.X == B.X ? A.Y < B.Y : A.X < B.X; });
 
 		if (!Result.Resolutions.IsEmpty() && !Result.Resolutions.Contains(Result.SelectedResolution))
 		{
-			// Keep a valid legacy selection visually close to its previous dimensions.
-			// A corrupt/first-run configuration uses the largest supported platform mode.
+			// Invalid settings fall back to the largest supported mode.
 			Result.SelectedResolution = IsValidResolution(Result.SelectedResolution)
 				? FindClosestSupportedResolution(Result.Resolutions, Result.SelectedResolution)
 				: Result.Resolutions.Last();
@@ -140,9 +123,7 @@ namespace MDGraphicsSettings
 			Result.Labels.Add(FormatResolutionLabel(Resolution));
 		}
 
-		Result.bIsValid =
-			Result.Resolutions.IsValidIndex(Result.SelectedIndex) &&
-			Result.Labels.Num() == Result.Resolutions.Num();
+		Result.bIsValid = Result.Resolutions.IsValidIndex(Result.SelectedIndex) && Result.Labels.Num() == Result.Resolutions.Num();
 
 		return Result;
 	}
@@ -170,8 +151,7 @@ FMDResolutionOptionSet UMDGraphicsSettingsLibrary::BuildCurrentResolutionOptions
 	TArray<FIntPoint> PlatformResolutions;
 	UKismetSystemLibrary::GetSupportedFullscreenResolutions(PlatformResolutions);
 
-	// Some platforms or remote sessions do not report fullscreen modes. Windowed
-	// recommendations are a better fallback than inventing a hard-coded resolution.
+	// Fullscreen modes can be unavailable in remote sessions and on some platforms.
 	if (PlatformResolutions.IsEmpty())
 	{
 		UKismetSystemLibrary::GetConvenientWindowedResolutions(PlatformResolutions);
@@ -182,9 +162,7 @@ FMDResolutionOptionSet UMDGraphicsSettingsLibrary::BuildCurrentResolutionOptions
 
 #if WITH_DEV_AUTOMATION_TESTS
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FMDResolutionOptionSetTest,
-	"Nautilus.Settings.Graphics.ResolutionOptionSet",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMDResolutionOptionSetTest, "Nautilus.Settings.Graphics.ResolutionOptionSet",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter)
 
 bool FMDResolutionOptionSetTest::RunTest(const FString& Parameters)
@@ -232,9 +210,7 @@ bool FMDResolutionOptionSetTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("5120x1440 32:9 is unsupported"), MDGraphicsSettings::IsSupportedResolution(FIntPoint(5120, 1440)));
 	TestFalse(TEXT("Zero resolution is unsupported"), MDGraphicsSettings::IsSupportedResolution(FIntPoint::ZeroValue));
 
-	const FMDResolutionOptionSet ExistingSelection = MDGraphicsSettings::BuildOptionSet(
-		ReportedResolutions,
-		FIntPoint(1920, 1200));
+	const FMDResolutionOptionSet ExistingSelection = MDGraphicsSettings::BuildOptionSet(ReportedResolutions, FIntPoint(1920, 1200));
 	TestTrue(TEXT("Existing confirmed resolution produces a valid option set"), ExistingSelection.bIsValid);
 	TestEqual(TEXT("Duplicate and uncatalogued modes are removed"), ExistingSelection.Resolutions.Num(), 13);
 	TestEqual(TEXT("Existing confirmed resolution keeps its sorted index"), ExistingSelection.SelectedIndex, 4);
@@ -245,41 +221,27 @@ bool FMDResolutionOptionSetTest::RunTest(const FString& Parameters)
 
 	TArray<FIntPoint> ReportedWithoutFullHd = ReportedResolutions;
 	ReportedWithoutFullHd.Remove(FIntPoint(1920, 1080));
-	const FMDResolutionOptionSet UnavailableSelection = MDGraphicsSettings::BuildOptionSet(
-		ReportedWithoutFullHd,
-		FIntPoint(1920, 1080));
+	const FMDResolutionOptionSet UnavailableSelection = MDGraphicsSettings::BuildOptionSet(ReportedWithoutFullHd, FIntPoint(1920, 1080));
 	TestTrue(TEXT("An unavailable supported resolution gets a valid fallback"), UnavailableSelection.bIsValid);
 	TestFalse(TEXT("An unavailable supported resolution is not fabricated"), UnavailableSelection.Resolutions.Contains(FIntPoint(1920, 1080)));
 	TestEqual(TEXT("An unavailable supported resolution uses the closest reported mode"), UnavailableSelection.SelectedResolution, FIntPoint(1920, 1200));
 
-	const FMDResolutionOptionSet UnsupportedSelection = MDGraphicsSettings::BuildOptionSet(
-		ReportedResolutions,
-		FIntPoint(5120, 1440));
+	const FMDResolutionOptionSet UnsupportedSelection = MDGraphicsSettings::BuildOptionSet(ReportedResolutions, FIntPoint(5120, 1440));
 	TestTrue(TEXT("An unsupported confirmed resolution gets a valid fallback"), UnsupportedSelection.bIsValid);
 	TestFalse(TEXT("An unsupported confirmed resolution is not reinserted"), UnsupportedSelection.Resolutions.Contains(FIntPoint(5120, 1440)));
 	TestEqual(TEXT("Super-ultrawide falls back to the closest supported ultrawide"), UnsupportedSelection.SelectedResolution, FIntPoint(3440, 1440));
 	TestEqual(TEXT("Closest fallback index is explicitly resolved"), UnsupportedSelection.SelectedIndex, 8);
 
-	const TArray<FIntPoint> EqualDistanceResolutions =
-	{
-		FIntPoint(1600, 900),
-		FIntPoint(2560, 1440)
-	};
-	const FMDResolutionOptionSet EqualDistanceSelection = MDGraphicsSettings::BuildOptionSet(
-		EqualDistanceResolutions,
-		FIntPoint(2080, 1170));
+	const TArray<FIntPoint> EqualDistanceResolutions = {FIntPoint(1600, 900), FIntPoint(2560, 1440)};
+	const FMDResolutionOptionSet EqualDistanceSelection = MDGraphicsSettings::BuildOptionSet(EqualDistanceResolutions, FIntPoint(2080, 1170));
 	TestEqual(TEXT("Equal-distance fallback prefers the lower pixel count"), EqualDistanceSelection.SelectedResolution, FIntPoint(1600, 900));
 
-	const FMDResolutionOptionSet InvalidSelection = MDGraphicsSettings::BuildOptionSet(
-		ReportedResolutions,
-		FIntPoint::ZeroValue);
+	const FMDResolutionOptionSet InvalidSelection = MDGraphicsSettings::BuildOptionSet(ReportedResolutions, FIntPoint::ZeroValue);
 	TestTrue(TEXT("Invalid first-run selection uses a reported platform mode"), InvalidSelection.bIsValid);
 	TestEqual(TEXT("Invalid first-run selection prefers the largest supported reported mode"), InvalidSelection.SelectedResolution, FIntPoint(5120, 2160));
 	TestEqual(TEXT("First-run fallback index is explicitly resolved"), InvalidSelection.SelectedIndex, 12);
 
-	const FMDResolutionOptionSet EmptySelection = MDGraphicsSettings::BuildOptionSet(
-		TArray<FIntPoint>(),
-		FIntPoint::ZeroValue);
+	const FMDResolutionOptionSet EmptySelection = MDGraphicsSettings::BuildOptionSet(TArray<FIntPoint>(), FIntPoint::ZeroValue);
 	TestFalse(TEXT("No fabricated resolution is returned when the platform reports none"), EmptySelection.bIsValid);
 	TestEqual(TEXT("An empty option set preserves INDEX_NONE"), EmptySelection.SelectedIndex, INDEX_NONE);
 

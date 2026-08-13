@@ -64,10 +64,6 @@ public:
 	void SelectActor() const;
 };
 
-/**
- * Native row used by the audit ListView. Its generated Blueprint subclass is
- * intentionally empty; all layout and behavior remain implemented here.
- */
 UCLASS(BlueprintType, Blueprintable)
 class MORBUSDEIEDITOR_API UMD_SceneAuditIssueRowWidget
 	: public UUserWidget
@@ -108,7 +104,6 @@ private:
 	TObjectPtr<UButton> SelectButton;
 };
 
-/** ListView with the native scene-audit row configured as its entry class. */
 UCLASS(NotBlueprintable)
 class MORBUSDEIEDITOR_API UMD_SceneAuditListView : public UListView
 {

@@ -1,15 +1,15 @@
 #include "Interaction/MD_PlayerInteractionComponent.h"
-#include "DrawDebugHelpers.h"
-#include "HAL/IConsoleManager.h"
 
+#include "Audio/MD_AudioZone.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
-#include "Interaction/MD_InteractInterface.h"
+#include "HAL/IConsoleManager.h"
 #include "Interaction/MD_InspectableComponent.h"
+#include "Interaction/MD_InteractInterface.h"
 #include "Interaction/MD_PlayerInspectComponent.h"
-#include "Audio/MD_AudioZone.h"
 
 namespace
 {
@@ -20,47 +20,24 @@ namespace
 		float Score = 0.0f;
 	};
 
-	TAutoConsoleVariable<int32> CVarMDInteractionDebug(
-		TEXT("md.Interaction.Debug"),
-		0,
-		TEXT("Draw interaction targeting debug. 0=Off, 1=Candidates, 2=+Aim rings, 3=+Interaction range."),
-		ECVF_Cheat);
+	TAutoConsoleVariable<int32> CVarMDInteractionDebug(TEXT("md.Interaction.Debug"), 0, TEXT("Draw interaction targeting debug. 0=Off, 1=Candidates, 2=+Aim rings, 3=+Interaction range."), ECVF_Cheat);
 
 	bool ShouldDrawInteractionDebug(const int32 MinimumLevel = 1)
 	{
 		return CVarMDInteractionDebug.GetValueOnGameThread() >= MinimumLevel;
 	}
 
-	void DrawInteractionCandidateMarker(
-		const UWorld* World,
-		const FVector& Location,
-		const FColor& Color,
-		const float Radius = 6.0f)
+	void DrawInteractionCandidateMarker(const UWorld* World, const FVector& Location, const FColor& Color, const float Radius = 6.0f)
 	{
 		if (!World)
 		{
 			return;
 		}
 
-		DrawDebugSphere(
-			World,
-			Location,
-			Radius,
-			8,
-			Color,
-			false,
-			0.0f,
-			0,
-			0.0f);
+		DrawDebugSphere(World, Location, Radius, 8, Color, false, 0.0f, 0, 0.0f);
 	}
 
-	void DrawInteractionAimRings(
-		const UWorld* World,
-		const FVector& ViewLocation,
-		const FVector& ViewDirection,
-		const float AcquireAngleDegrees,
-		const float ReleaseAngleDegrees,
-		const float InteractDistance)
+	void DrawInteractionAimRings(const UWorld* World, const FVector& ViewLocation, const FVector& ViewDirection, const float AcquireAngleDegrees, const float ReleaseAngleDegrees, const float InteractDistance)
 	{
 		if (!World || !ShouldDrawInteractionDebug(2))
 		{
@@ -74,9 +51,7 @@ namespace
 		const float RingDistance = FMath::Clamp(InteractDistance * 0.4f, 100.0f, 200.0f);
 		const FVector RingCenter = ViewLocation + Forward * RingDistance;
 		const float AcquireAngle = FMath::Clamp(AcquireAngleDegrees, 0.0f, 89.0f);
-		const float ReleaseAngle = FMath::Max(
-			AcquireAngle,
-			FMath::Clamp(ReleaseAngleDegrees, 0.0f, 89.0f));
+		const float ReleaseAngle = FMath::Max(AcquireAngle, FMath::Clamp(ReleaseAngleDegrees, 0.0f, 89.0f));
 		const float AcquireRadius = FMath::Tan(FMath::DegreesToRadians(AcquireAngle)) * RingDistance;
 		const float ReleaseRadius = FMath::Tan(FMath::DegreesToRadians(ReleaseAngle)) * RingDistance;
 
@@ -84,15 +59,9 @@ namespace
 		DrawDebugCircle(World, RingCenter, ReleaseRadius, 32, FColor(180, 70, 255), false, 0.0f, 0, 0.0f, Right, Up, false);
 	}
 
-	void DrawInteractionRangeRing(
-		const UWorld* World,
-		const APawn* Pawn,
-		const float InteractDistance)
+	void DrawInteractionRangeRing(const UWorld* World, const APawn* Pawn, const float InteractDistance)
 	{
-		if (!World
-			|| !IsValid(Pawn)
-			|| !ShouldDrawInteractionDebug(3)
-			|| InteractDistance <= KINDA_SMALL_NUMBER)
+		if (!World || !IsValid(Pawn) || !ShouldDrawInteractionDebug(3) || InteractDistance <= KINDA_SMALL_NUMBER)
 		{
 			return;
 		}
@@ -104,19 +73,7 @@ namespace
 		FVector RingCenter = BoundsOrigin;
 		RingCenter.Z -= BoundsExtent.Z - 2.0f;
 
-		DrawDebugCircle(
-			World,
-			RingCenter,
-			InteractDistance,
-			64,
-			FColor(255, 130, 35),
-			false,
-			0.0f,
-			0,
-			0.0f,
-			FVector::ForwardVector,
-			FVector::RightVector,
-			false);
+		DrawDebugCircle(World, RingCenter, InteractDistance, 64, FColor(255, 130, 35), false, 0.0f, 0, 0.0f, FVector::ForwardVector, FVector::RightVector, false);
 	}
 }
 
@@ -137,11 +94,7 @@ void UMD_PlayerInteractionComponent::BeginPlay()
 	}
 }
 
-void UMD_PlayerInteractionComponent::TickComponent(
-	float DeltaTime,
-	ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction
-)
+void UMD_PlayerInteractionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -154,7 +107,7 @@ void UMD_PlayerInteractionComponent::Interact()
 	{
 		return;
 	}
-	
+
 	if (AMD_AudioZone::TrySkipActiveVoiceLine())
 	{
 		return;
@@ -193,8 +146,7 @@ void UMD_PlayerInteractionComponent::Inspect()
 		return;
 	}
 
-	UMD_InspectableComponent* Inspectable =
-		CurrentFocusedInteractable->FindComponentByClass<UMD_InspectableComponent>();
+	UMD_InspectableComponent* Inspectable = CurrentFocusedInteractable->FindComponentByClass<UMD_InspectableComponent>();
 
 	if (!Inspectable || !Inspectable->CanInspect())
 	{
@@ -220,17 +172,14 @@ void UMD_PlayerInteractionComponent::SetInteractionFocus(AActor* NewInteractable
 	}
 
 	AActor* PreviousInteractable = CurrentFocusedInteractable;
-	if (IsValid(PreviousInteractable) &&
-		PreviousInteractable->Implements<UMD_InteractInterface>())
+	if (IsValid(PreviousInteractable) && PreviousInteractable->Implements<UMD_InteractInterface>())
 	{
-		IMD_InteractInterface::Execute_SetInteractPromptVisible(PreviousInteractable, false);
 		IMD_InteractInterface::Execute_Highlight(PreviousInteractable, false);
 	}
 
 	CurrentFocusedInteractable = NewInteractable;
 	if (IsValid(CurrentFocusedInteractable))
 	{
-		IMD_InteractInterface::Execute_SetInteractPromptVisible(CurrentFocusedInteractable, true);
 		IMD_InteractInterface::Execute_Highlight(CurrentFocusedInteractable, true);
 	}
 
@@ -244,24 +193,18 @@ void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 		ClearInteractionFocus();
 		return;
 	}
-	
+
 	if (!IsValid(OwningPawn) || !OwningPawn->GetController() || !GetWorld())
 	{
 		ClearInteractionFocus();
 		return;
 	}
-	
+
 	FVector ViewLocation;
 	FRotator ViewRotation;
 	OwningPawn->GetController()->GetPlayerViewPoint(ViewLocation, ViewRotation);
 	const FVector ViewDirection = ViewRotation.Vector();
-	DrawInteractionAimRings(
-		GetWorld(),
-		ViewLocation,
-		ViewDirection,
-		FocusAcquireAngleDegrees,
-		FocusReleaseAngleDegrees,
-		InteractDistance);
+	DrawInteractionAimRings(GetWorld(), ViewLocation, ViewDirection, FocusAcquireAngleDegrees, FocusReleaseAngleDegrees, InteractDistance);
 
 	DrawInteractionRangeRing(GetWorld(), OwningPawn, InteractDistance);
 	if (AActor* DirectCandidate = FindDirectInteractionCandidate(ViewLocation, ViewDirection))
@@ -278,9 +221,7 @@ void UMD_PlayerInteractionComponent::UpdateInteractionFocus()
 	SetInteractionFocus(FindBestInteractionCandidate(ViewLocation, ViewDirection));
 }
 
-AActor* UMD_PlayerInteractionComponent::FindDirectInteractionCandidate(
-	const FVector& ViewLocation,
-	const FVector& ViewDirection) const
+AActor* UMD_PlayerInteractionComponent::FindDirectInteractionCandidate(const FVector& ViewLocation, const FVector& ViewDirection) const
 {
 	if (!GetWorld() || !IsValid(OwningPawn) || InteractDistance <= KINDA_SMALL_NUMBER)
 	{
@@ -294,12 +235,7 @@ AActor* UMD_PlayerInteractionComponent::FindDirectInteractionCandidate(
 	QueryParams.AddIgnoredActor(OwningPawn);
 
 	FHitResult Hit;
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		ViewLocation,
-		TraceEnd,
-		ECC_Visibility,
-		QueryParams);
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, TraceEnd, ECC_Visibility, QueryParams);
 
 	AActor* HitActor = bHit ? Hit.GetActor() : nullptr;
 	if (!IsInteractionCandidateAvailable(HitActor))
@@ -307,16 +243,12 @@ AActor* UMD_PlayerInteractionComponent::FindDirectInteractionCandidate(
 		return nullptr;
 	}
 
-	const float PawnDistanceToHit = FVector::Distance(
-		OwningPawn->GetActorLocation(),
-		Hit.ImpactPoint);
+	const float PawnDistanceToHit = FVector::Distance(OwningPawn->GetActorLocation(), Hit.ImpactPoint);
 
 	return PawnDistanceToHit <= InteractDistance ? HitActor : nullptr;
 }
 
-AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(
-	const FVector& ViewLocation,
-	const FVector& ViewDirection) const
+AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(const FVector& ViewLocation, const FVector& ViewDirection) const
 {
 	UWorld* World = GetWorld();
 	if (!World || !IsValid(OwningPawn) || InteractDistance <= KINDA_SMALL_NUMBER)
@@ -328,22 +260,14 @@ AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(
 	QueryParams.AddIgnoredActor(OwningPawn);
 
 	TArray<FOverlapResult> Overlaps;
-	World->OverlapMultiByChannel(
-		Overlaps,
-		OwningPawn->GetActorLocation(),
-		FQuat::Identity,
-		ECC_Visibility,
-		FCollisionShape::MakeSphere(InteractDistance),
-		QueryParams);
+	World->OverlapMultiByChannel(Overlaps, OwningPawn->GetActorLocation(), FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(InteractDistance), QueryParams);
 
 	TSet<AActor*> ProcessedActors;
 	TArray<FMDInteractionCandidate> Candidates;
 
 	const FVector NormalizedViewDirection = ViewDirection.GetSafeNormal();
 	const float AcquireAngle = FMath::Clamp(FocusAcquireAngleDegrees, 0.0f, 89.0f);
-	const float ReleaseAngle = FMath::Max(
-		AcquireAngle,
-		FMath::Clamp(FocusReleaseAngleDegrees, 0.0f, 89.0f));
+	const float ReleaseAngle = FMath::Max(AcquireAngle, FMath::Clamp(FocusReleaseAngleDegrees, 0.0f, 89.0f));
 	const float AcquireMinimumAimDot = FMath::Cos(FMath::DegreesToRadians(AcquireAngle));
 	const float ReleaseMinimumAimDot = FMath::Cos(FMath::DegreesToRadians(ReleaseAngle));
 
@@ -373,9 +297,7 @@ AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(
 
 		const float AimDot = FVector::DotProduct(NormalizedViewDirection, ToCandidate.GetSafeNormal());
 		const bool bIsCurrentFocus = Candidate == CurrentFocusedInteractable;
-		const float EligibilityMinimumAimDot = bIsCurrentFocus
-			? ReleaseMinimumAimDot
-			: AcquireMinimumAimDot;
+		const float EligibilityMinimumAimDot = bIsCurrentFocus ? ReleaseMinimumAimDot : AcquireMinimumAimDot;
 
 		if (AimDot < EligibilityMinimumAimDot)
 		{
@@ -402,10 +324,7 @@ AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(
 		}
 	}
 
-	Candidates.Sort([](const FMDInteractionCandidate& Left, const FMDInteractionCandidate& Right)
-	{
-		return Left.Score > Right.Score;
-	});
+	Candidates.Sort([](const FMDInteractionCandidate& Left, const FMDInteractionCandidate& Right) { return Left.Score > Right.Score; });
 
 	AActor* BestCandidate = nullptr;
 	FVector BestFocusLocation = FVector::ZeroVector;
@@ -413,15 +332,11 @@ AActor* UMD_PlayerInteractionComponent::FindBestInteractionCandidate(
 
 	for (const FMDInteractionCandidate& Candidate : Candidates)
 	{
-		const bool bHasLineOfSight =
-			HasLineOfSightToCandidate(Candidate.Actor, ViewLocation, Candidate.FocusLocation);
+		const bool bHasLineOfSight = HasLineOfSightToCandidate(Candidate.Actor, ViewLocation, Candidate.FocusLocation);
 
 		if (bDrawDebug)
 		{
-			DrawInteractionCandidateMarker(
-				World,
-				Candidate.FocusLocation,
-				bHasLineOfSight ? FColor::Yellow : FColor::Red);
+			DrawInteractionCandidateMarker(World, Candidate.FocusLocation, bHasLineOfSight ? FColor::Yellow : FColor::Red);
 		}
 
 		if (!BestCandidate && bHasLineOfSight)
@@ -452,8 +367,7 @@ bool UMD_PlayerInteractionComponent::IsInteractionCandidateAvailable(AActor* Can
 	}
 
 	const bool bCanInteract = IMD_InteractInterface::Execute_CanInteract(Candidate);
-	const UMD_InspectableComponent* Inspectable =
-		Candidate->FindComponentByClass<UMD_InspectableComponent>();
+	const UMD_InspectableComponent* Inspectable = Candidate->FindComponentByClass<UMD_InspectableComponent>();
 	const bool bCanInspect = IsValid(Inspectable) && Inspectable->CanInspect();
 
 	return bCanInteract || bCanInspect;
@@ -472,10 +386,7 @@ FVector UMD_PlayerInteractionComponent::GetInteractionFocusLocation(const AActor
 	return BoundsOrigin;
 }
 
-bool UMD_PlayerInteractionComponent::HasLineOfSightToCandidate(
-	const AActor* Candidate,
-	const FVector& ViewLocation,
-	const FVector& FocusLocation) const
+bool UMD_PlayerInteractionComponent::HasLineOfSightToCandidate(const AActor* Candidate, const FVector& ViewLocation, const FVector& FocusLocation) const
 {
 	if (!IsValid(Candidate) || !GetWorld())
 	{
@@ -486,12 +397,7 @@ bool UMD_PlayerInteractionComponent::HasLineOfSightToCandidate(
 	QueryParams.AddIgnoredActor(OwningPawn);
 
 	FHitResult Hit;
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		Hit,
-		ViewLocation,
-		FocusLocation,
-		ECC_Visibility,
-		QueryParams);
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, FocusLocation, ECC_Visibility, QueryParams);
 
 	return !bHit || Hit.GetActor() == Candidate;
 }

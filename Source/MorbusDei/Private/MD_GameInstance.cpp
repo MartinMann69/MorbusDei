@@ -138,12 +138,5 @@ void UMD_GameInstance::ApplyClassVolume(USoundClass* SoundClass, float Volume) c
 		return;
 	}
 
-	UGameplayStatics::SetSoundMixClassOverride(
-		this,
-		VolumeSettings,
-		SoundClass,
-		FMath::Clamp(Volume, 0.0f, 1.0f),
-		1.0f,
-		VolumeFadeDuration,
-		false);
+	UGameplayStatics::SetSoundMixClassOverride(this, VolumeSettings, SoundClass, FMath::Clamp(Volume, 0.0f, 1.0f), 1.0f, VolumeFadeDuration, false);
 }

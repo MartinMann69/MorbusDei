@@ -6,15 +6,13 @@
 #include "Sound/SoundBase.h"
 #include "UObject/ConstructorHelpers.h"
 
-UMD_ActionHintWidget::UMD_ActionHintWidget(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UMD_ActionHintWidget::UMD_ActionHintWidget(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	KeyboardKeyText = NSLOCTEXT("MDActionHint", "DefaultKeyboardKey", "Esc");
 	GamepadKeyText = NSLOCTEXT("MDActionHint", "DefaultGamepadKey", "B");
 	ActionText = NSLOCTEXT("MDActionHint", "DefaultBackAction", "Zurück");
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> SoundFinder(
-		TEXT("/Game/MorbusDei/Audio/MetaSounds/SFX/MSS_MenuButtonClick.MSS_MenuButtonClick"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> SoundFinder(TEXT("/Game/MorbusDei/Audio/MetaSounds/SFX/MSS_MenuButtonClick.MSS_MenuButtonClick"));
 	if (SoundFinder.Succeeded())
 	{
 		HandledSound = SoundFinder.Object;
@@ -30,35 +28,24 @@ void UMD_ActionHintWidget::NativeConstruct()
 		bHasCachedDefaultKeyFont = true;
 	}
 
-	if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-		: nullptr)
+	if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>() : nullptr)
 	{
-		InputDeviceSubsystem->OnInputDeviceChanged.AddUniqueDynamic(
-			this,
-			&UMD_ActionHintWidget::HandleInputDeviceChanged);
+		InputDeviceSubsystem->OnInputDeviceChanged.AddUniqueDynamic(this, &UMD_ActionHintWidget::HandleInputDeviceChanged);
 	}
 	RefreshPresentation();
 }
 
 void UMD_ActionHintWidget::NativeDestruct()
 {
-	if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-		: nullptr)
+	if (UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>() : nullptr)
 	{
-		InputDeviceSubsystem->OnInputDeviceChanged.RemoveDynamic(
-			this,
-			&UMD_ActionHintWidget::HandleInputDeviceChanged);
+		InputDeviceSubsystem->OnInputDeviceChanged.RemoveDynamic(this, &UMD_ActionHintWidget::HandleInputDeviceChanged);
 	}
 	StopPulse(true);
 	Super::NativeDestruct();
 }
 
-void UMD_ActionHintWidget::ConfigureHint(
-	const FText& InKeyboardKeyText,
-	const FText& InGamepadKeyText,
-	const FText& InActionText)
+void UMD_ActionHintWidget::ConfigureHint(const FText& InKeyboardKeyText, const FText& InGamepadKeyText, const FText& InActionText)
 {
 	KeyboardKeyText = InKeyboardKeyText;
 	GamepadKeyText = InGamepadKeyText;
@@ -88,21 +75,16 @@ void UMD_ActionHintWidget::PlayHandledFeedback()
 		return;
 	}
 
-	PulseTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
-		FTickerDelegate::CreateUObject(this, &UMD_ActionHintWidget::TickPulse));
+	PulseTickerHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UMD_ActionHintWidget::TickPulse));
 }
 
 bool UMD_ActionHintWidget::IsUsingGamepad() const
 {
-	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-		: nullptr;
+	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>() : nullptr;
 	return InputDeviceSubsystem && InputDeviceSubsystem->IsUsingGamepad();
 }
 
-void UMD_ActionHintWidget::HandleInputDeviceChanged(
-	const EMDInputDeviceType PreviousDevice,
-	const EMDInputDeviceType NewDevice)
+void UMD_ActionHintWidget::HandleInputDeviceChanged(const EMDInputDeviceType PreviousDevice, const EMDInputDeviceType NewDevice)
 {
 	RefreshPresentation();
 }
@@ -118,14 +100,10 @@ void UMD_ActionHintWidget::RefreshPresentation()
 		NormalizedKeyString.ReplaceInline(TEXT(" "), TEXT(""));
 		NormalizedKeyString.ReplaceInline(TEXT("/"), TEXT(""));
 
-		// Blueprint defaults may still contain the legacy "LT / RT" presentation.
-		// Normalize all supported trigger spellings before applying the compact layout.
+		// Normalize the legacy "LT / RT" Blueprint text before using the compact layout.
 		if (NormalizedKeyString.Equals(TEXT("LTRT"), ESearchCase::IgnoreCase))
 		{
-			DisplayKeyString = FString::Printf(
-				TEXT("%s\n%s"),
-				*NormalizedKeyString.Left(2),
-				*NormalizedKeyString.Right(2));
+			DisplayKeyString = FString::Printf(TEXT("%s\n%s"), *NormalizedKeyString.Left(2), *NormalizedKeyString.Right(2));
 		}
 
 		BackKeyText->SetText(FText::FromString(DisplayKeyString));

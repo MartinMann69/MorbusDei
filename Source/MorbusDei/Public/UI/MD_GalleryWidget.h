@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -15,19 +13,18 @@ class UGameUIFocusItemWidgetBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMDGalleryInspectModeChanged, bool, bIsInspecting);
 
-/** Designer-authored presentation for one reusable gallery action-hint row. */
 USTRUCT(BlueprintType)
 struct FMDGalleryActionHintDefinition
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Gallery|Hints")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MD|Gallery|Hints")
 	FText KeyboardKeyText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Gallery|Hints")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MD|Gallery|Hints")
 	FText GamepadKeyText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Gallery|Hints")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MD|Gallery|Hints")
 	FText ActionText;
 };
 
@@ -38,23 +35,21 @@ class MORBUSDEI_API UMD_GalleryWidget : public UMD_MenuLayerScreenWidget
 public:
 	UMD_GalleryWidget(const FObjectInitializer& ObjectInitializer);
 
-	UFUNCTION(BlueprintCallable, Category="MD|Gallery")
+	UFUNCTION(BlueprintCallable, Category = "MD|Gallery")
 	void ShowPreviewItem(TSubclassOf<AActor> PreviewClass);
 
-	UFUNCTION(BlueprintCallable, Category="MD|Gallery")
+	UFUNCTION(BlueprintCallable, Category = "MD|Gallery")
 	void ClearPreview();
 
-	/** Leaves object inspection and restores focus to the selected gallery tile. */
-	UFUNCTION(BlueprintCallable, Category="MD|Gallery|Input")
+	UFUNCTION(BlueprintCallable, Category = "MD|Gallery|Input")
 	bool ReturnToGallerySelection();
 
-	UFUNCTION(BlueprintPure, Category="MD|Gallery|Input")
+	UFUNCTION(BlueprintPure, Category = "MD|Gallery|Input")
 	bool IsInspectingPreview() const { return bIsInspectingPreview; }
 
-	/** Use this to swap controller action hints and play mode transition feedback. */
-	UPROPERTY(BlueprintAssignable, Category="MD|Gallery|Input")
+	UPROPERTY(BlueprintAssignable, Category = "MD|Gallery|Input")
 	FMDGalleryInspectModeChanged OnInspectModeChanged;
-	
+
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
@@ -73,89 +68,82 @@ protected:
 	virtual bool HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat) override;
 	virtual bool HandleRootBackAction_Implementation() override;
 
-	UPROPERTY(meta=(BindWidget), BlueprintReadOnly)
+	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
 	TObjectPtr<UWidget> PreviewInputArea;
 
-	/** Optional. Rename the gallery ScrollBox to GalleryScrollBox for deterministic binding. */
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery")
+	/** Optional named binding; otherwise the first ScrollBox is used. */
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery")
 	TObjectPtr<UScrollBox> GalleryScrollBox;
 
-	/** Optional. The existing WrapBox is discovered automatically if it keeps its legacy name. */
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery")
+	/** Optional named binding; otherwise the first WrapBox is used. */
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery")
 	TObjectPtr<UWrapBox> GalleryItemsContainer;
 
-	/** Optional reusable WBP_ActionHint rows. Their names are the binding contract. */
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	/** Optional WBP_ActionHint bindings. */
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> SelectActionHint;
 
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> RotateActionHint;
 
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> MoveActionHint;
 
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> ZoomActionHint;
 
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> ResetActionHint;
 
-	UPROPERTY(meta=(BindWidgetOptional), BlueprintReadOnly, Category="MD|Gallery|Hints")
+	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Gallery|Hints")
 	TObjectPtr<UMD_ActionHintWidget> BackActionHint;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition SelectHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition RotateHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition MoveHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition ZoomHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition ResetHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition GalleryBackHintText;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Hints", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Hints", meta = (ShowOnlyInnerProperties))
 	FMDGalleryActionHintDefinition InspectBackHintText;
 
-	UPROPERTY(BlueprintReadOnly, Category="MD|Gallery")
+	UPROPERTY(BlueprintReadOnly, Category = "MD|Gallery")
 	TObjectPtr<AMD_MenuPreviewRig> PreviewRigRef;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Gallery")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MD|Gallery")
 	bool bClearPreviewOnDestruct = true;
 
-	/** Stick input below this value does not move the inspected object. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Input", meta=(ClampMin="0.0", ClampMax="1.0"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Input", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float InspectStickDeadZone = 0.15f;
 
-	/** Virtual mouse delta per second at full right-stick deflection. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Input", meta=(ClampMin="0.0"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Input", meta = (ClampMin = "0.0"))
 	float GamepadRotationInputSpeed = 420.0f;
 
-	/** Virtual mouse-wheel steps per second at full trigger deflection. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Input", meta=(ClampMin="0.0"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Input", meta = (ClampMin = "0.0"))
 	float GamepadZoomInputSpeed = 5.0f;
 
-	/** Scales only left-stick preview movement. WASD continues to use the rig's full Camera Pan Speed. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Input", meta=(ClampMin="0.0", ClampMax="2.0"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Input", meta = (ClampMin = "0.0", ClampMax = "2.0"))
 	float GamepadPanSensitivity = 0.5f;
 
-	/** Additional left-stick multiplier at maximum zoom-in. Blends back to 1 while zooming out. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Input", meta=(ClampMin="0.05", ClampMax="1.0"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Input", meta = (ClampMin = "0.05", ClampMax = "1.0"))
 	float GamepadPanZoomedInScale = 0.3f;
 
-	/** Visual column count of the gallery WrapBox. Keeps navigation stable while scrolling. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Navigation", meta=(ClampMin="1"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Navigation", meta = (ClampMin = "1"))
 	int32 GalleryColumnCount = 3;
 
-	/** Limits Slate key-repeat so holding the D-pad cannot race through the entire list. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="MD|Gallery|Navigation", meta=(ClampMin="0.05"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Navigation", meta = (ClampMin = "0.05"))
 	float GalleryDigitalRepeatInterval = 0.14f;
 
 private:

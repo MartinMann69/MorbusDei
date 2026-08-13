@@ -9,11 +9,10 @@
 #include "InputCoreTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "Tools/MD_MenuPreviewRig.h"
-#include "UI/MD_ActionHintWidget.h"
 #include "UI/Focus/GameUIFocusItemWidgetBase.h"
+#include "UI/MD_ActionHintWidget.h"
 
-UMD_GalleryWidget::UMD_GalleryWidget(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UMD_GalleryWidget::UMD_GalleryWidget(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	SetIsFocusable(true);
 
@@ -93,19 +92,12 @@ void UMD_GalleryWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 	const FVector2D RotationInput = ApplyStickDeadZone(RightStickInput);
 	if (!RotationInput.IsNearlyZero())
 	{
-		PreviewRigRef->RotatePreview(
-			RotationInput.X * GamepadRotationInputSpeed * InDeltaTime,
-			-RotationInput.Y * GamepadRotationInputSpeed * InDeltaTime);
+		PreviewRigRef->RotatePreview(RotationInput.X * GamepadRotationInputSpeed * InDeltaTime, -RotationInput.Y * GamepadRotationInputSpeed * InDeltaTime);
 	}
 
 	const FVector2D KeyboardPanInput = GetKeyboardPanInput();
-	const float ZoomPanScale = FMath::Lerp(
-		GamepadPanZoomedInScale,
-		1.0f,
-		PreviewRigRef->GetNormalizedZoomDistance());
-	const FVector2D GamepadPanInput = ApplyStickDeadZone(LeftStickInput)
-		* GamepadPanSensitivity
-		* ZoomPanScale;
+	const float ZoomPanScale = FMath::Lerp(GamepadPanZoomedInScale, 1.0f, PreviewRigRef->GetNormalizedZoomDistance());
+	const FVector2D GamepadPanInput = ApplyStickDeadZone(LeftStickInput) * GamepadPanSensitivity * ZoomPanScale;
 	const FVector2D PanInput = (KeyboardPanInput + GamepadPanInput).GetClampedToMaxSize(1.0f);
 	if (!PanInput.IsNearlyZero())
 	{
@@ -133,9 +125,7 @@ void UMD_GalleryWidget::FindPreviewRig()
 		return;
 	}
 
-	PreviewRigRef = Cast<AMD_MenuPreviewRig>(
-		UGameplayStatics::GetActorOfClass(GetWorld(), AMD_MenuPreviewRig::StaticClass())
-	);
+	PreviewRigRef = Cast<AMD_MenuPreviewRig>(UGameplayStatics::GetActorOfClass(GetWorld(), AMD_MenuPreviewRig::StaticClass()));
 }
 
 void UMD_GalleryWidget::ShowPreviewItem(TSubclassOf<AActor> PreviewClass)
@@ -267,8 +257,7 @@ FReply UMD_GalleryWidget::NativeOnMouseWheel(const FGeometry& InGeometry, const 
 
 FReply UMD_GalleryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-	// Pointer users do not need the controller-oriented Content/Modal focus step.
-	// Handle Escape before the base class switches the active input mode to keyboard navigation.
+	// Handle pointer Escape before keyboard-navigation mode takes over.
 	if (InKeyEvent.GetKey() == EKeys::Escape && IsPointerInputActive())
 	{
 		const EGameUIFocusZone SourceZone = GetCurrentFocusZone();
@@ -291,8 +280,7 @@ FReply UMD_GalleryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, co
 			return FReply::Handled();
 		}
 
-		if ((InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Top || InKeyEvent.GetKey() == EKeys::R)
-			&& IsValid(PreviewRigRef))
+		if ((InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Top || InKeyEvent.GetKey() == EKeys::R) && IsValid(PreviewRigRef))
 		{
 			PreviewRigRef->ResetPreviewView();
 			if (ResetActionHint)
@@ -355,9 +343,7 @@ FReply UMD_GalleryWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyE
 	return Reply.IsEventHandled() ? Reply : Super::NativeOnKeyUp(InGeometry, InKeyEvent);
 }
 
-FReply UMD_GalleryWidget::NativeOnAnalogValueChanged(
-	const FGeometry& InGeometry,
-	const FAnalogInputEvent& InAnalogEvent)
+FReply UMD_GalleryWidget::NativeOnAnalogValueChanged(const FGeometry& InGeometry, const FAnalogInputEvent& InAnalogEvent)
 {
 	if (bIsInspectingPreview && UpdatePreviewAnalogAxis(InAnalogEvent.GetKey(), InAnalogEvent.GetAnalogValue()))
 	{
@@ -366,11 +352,7 @@ FReply UMD_GalleryWidget::NativeOnAnalogValueChanged(
 	}
 
 	const FGameUIAnalogNavigationResult Result = GalleryNavigationState.ProcessAxis(
-		InAnalogEvent.GetKey(),
-		InAnalogEvent.GetAnalogValue(),
-		FPlatformTime::Seconds(),
-		AnalogNavigationConfig,
-		EGameUIAnalogNavigationMode::TwoDimensional);
+		InAnalogEvent.GetKey(), InAnalogEvent.GetAnalogValue(), FPlatformTime::Seconds(), AnalogNavigationConfig, EGameUIAnalogNavigationMode::TwoDimensional);
 	if (!Result.bHandled)
 	{
 		return Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
@@ -395,12 +377,7 @@ bool UMD_GalleryWidget::HandleNavigationWidgetAnalogInput(UWidget* NavigationWid
 		return UpdatePreviewAnalogAxis(Key, Value);
 	}
 
-	const FGameUIAnalogNavigationResult Result = GalleryNavigationState.ProcessAxis(
-		Key,
-		Value,
-		FPlatformTime::Seconds(),
-		AnalogNavigationConfig,
-		EGameUIAnalogNavigationMode::TwoDimensional);
+	const FGameUIAnalogNavigationResult Result = GalleryNavigationState.ProcessAxis(Key, Value, FPlatformTime::Seconds(), AnalogNavigationConfig, EGameUIAnalogNavigationMode::TwoDimensional);
 	if (!Result.bHandled)
 	{
 		return Super::HandleNavigationWidgetAnalogInput(NavigationWidget, Key, Value);
@@ -417,10 +394,7 @@ bool UMD_GalleryWidget::HandleNavigationWidgetAnalogInput(UWidget* NavigationWid
 	return true;
 }
 
-bool UMD_GalleryWidget::HandleNavigationWidgetDigitalInput(
-	UWidget* NavigationWidget,
-	FIntPoint Direction,
-	bool bIsRepeat)
+bool UMD_GalleryWidget::HandleNavigationWidgetDigitalInput(UWidget* NavigationWidget, FIntPoint Direction, bool bIsRepeat)
 {
 	if (bIsInspectingPreview)
 	{
@@ -441,8 +415,7 @@ bool UMD_GalleryWidget::HandleRootBackAction_Implementation()
 		return true;
 	}
 
-	// WBP_Gallery still owns its legacy layer-pop through the visible Back button.
-	// Keep controller Back compatible until that graph is migrated to RequestPopMenuLayer.
+	// The legacy Back button still owns the Blueprint layer pop.
 	if (IsValid(GalleryBackButton))
 	{
 		GalleryBackButton->ActivateFocusItem();
@@ -459,31 +432,31 @@ void UMD_GalleryWidget::RegisterGalleryFocusItems()
 		return;
 	}
 
-	WidgetTree->ForEachWidget([this](UWidget* Widget)
-	{
-		if (!GalleryScrollBox)
+	WidgetTree->ForEachWidget(
+		[this](UWidget* Widget)
 		{
-			GalleryScrollBox = Cast<UScrollBox>(Widget);
-		}
-		if (!GalleryItemsContainer)
-		{
-			GalleryItemsContainer = Cast<UWrapBox>(Widget);
-		}
+			if (!GalleryScrollBox)
+			{
+				GalleryScrollBox = Cast<UScrollBox>(Widget);
+			}
+			if (!GalleryItemsContainer)
+			{
+				GalleryItemsContainer = Cast<UWrapBox>(Widget);
+			}
 
-		UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
-		if (FocusItem && FocusItem->GetFName() == TEXT("BaseButton_Back"))
-		{
-			GalleryBackButton = FocusItem;
-		}
-	});
+			UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+			if (FocusItem && FocusItem->GetFName() == TEXT("BaseButton_Back"))
+			{
+				GalleryBackButton = FocusItem;
+			}
+		});
 
 	TArray<UWidget*> GalleryItems;
 	if (GalleryItemsContainer)
 	{
 		for (int32 ChildIndex = 0; ChildIndex < GalleryItemsContainer->GetChildrenCount(); ++ChildIndex)
 		{
-			if (UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(
-				GalleryItemsContainer->GetChildAt(ChildIndex)))
+			if (UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(GalleryItemsContainer->GetChildAt(ChildIndex)))
 			{
 				GalleryItems.Add(FocusItem);
 			}
@@ -491,14 +464,15 @@ void UMD_GalleryWidget::RegisterGalleryFocusItems()
 	}
 	else
 	{
-		WidgetTree->ForEachWidget([this, &GalleryItems](UWidget* Widget)
-		{
-			UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
-			if (FocusItem && FocusItem != GalleryBackButton)
+		WidgetTree->ForEachWidget(
+			[this, &GalleryItems](UWidget* Widget)
 			{
-				GalleryItems.Add(FocusItem);
-			}
-		});
+				UGameUIFocusItemWidgetBase* FocusItem = Cast<UGameUIFocusItemWidgetBase>(Widget);
+				if (FocusItem && FocusItem != GalleryBackButton)
+				{
+					GalleryItems.Add(FocusItem);
+				}
+			});
 	}
 
 	SetNavigationWidgets(GalleryItems);
@@ -508,63 +482,38 @@ void UMD_GalleryWidget::RefreshActionHints()
 {
 	if (SelectActionHint)
 	{
-		SelectActionHint->ConfigureHint(
-			SelectHintText.KeyboardKeyText,
-			SelectHintText.GamepadKeyText,
-			SelectHintText.ActionText);
-		SelectActionHint->SetVisibility(
-			bIsInspectingPreview ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+		SelectActionHint->ConfigureHint(SelectHintText.KeyboardKeyText, SelectHintText.GamepadKeyText, SelectHintText.ActionText);
+		SelectActionHint->SetVisibility(bIsInspectingPreview ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
 	}
 
 	if (RotateActionHint)
 	{
-		RotateActionHint->ConfigureHint(
-			RotateHintText.KeyboardKeyText,
-			RotateHintText.GamepadKeyText,
-			RotateHintText.ActionText);
-		RotateActionHint->SetVisibility(
-			bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		RotateActionHint->ConfigureHint(RotateHintText.KeyboardKeyText, RotateHintText.GamepadKeyText, RotateHintText.ActionText);
+		RotateActionHint->SetVisibility(bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
 	if (MoveActionHint)
 	{
-		MoveActionHint->ConfigureHint(
-			MoveHintText.KeyboardKeyText,
-			MoveHintText.GamepadKeyText,
-			MoveHintText.ActionText);
-		MoveActionHint->SetVisibility(
-			bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		MoveActionHint->ConfigureHint(MoveHintText.KeyboardKeyText, MoveHintText.GamepadKeyText, MoveHintText.ActionText);
+		MoveActionHint->SetVisibility(bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
 	if (ZoomActionHint)
 	{
-		ZoomActionHint->ConfigureHint(
-			ZoomHintText.KeyboardKeyText,
-			ZoomHintText.GamepadKeyText,
-			ZoomHintText.ActionText);
-		ZoomActionHint->SetVisibility(
-			bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		ZoomActionHint->ConfigureHint(ZoomHintText.KeyboardKeyText, ZoomHintText.GamepadKeyText, ZoomHintText.ActionText);
+		ZoomActionHint->SetVisibility(bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
 	if (ResetActionHint)
 	{
-		ResetActionHint->ConfigureHint(
-			ResetHintText.KeyboardKeyText,
-			ResetHintText.GamepadKeyText,
-			ResetHintText.ActionText);
-		ResetActionHint->SetVisibility(
-			bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+		ResetActionHint->ConfigureHint(ResetHintText.KeyboardKeyText, ResetHintText.GamepadKeyText, ResetHintText.ActionText);
+		ResetActionHint->SetVisibility(bIsInspectingPreview ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 
 	if (BackActionHint)
 	{
-		const FMDGalleryActionHintDefinition& BackHintText = bIsInspectingPreview
-			? InspectBackHintText
-			: GalleryBackHintText;
-		BackActionHint->ConfigureHint(
-			BackHintText.KeyboardKeyText,
-			BackHintText.GamepadKeyText,
-			BackHintText.ActionText);
+		const FMDGalleryActionHintDefinition& BackHintText = bIsInspectingPreview ? InspectBackHintText : GalleryBackHintText;
+		BackActionHint->ConfigureHint(BackHintText.KeyboardKeyText, BackHintText.GamepadKeyText, BackHintText.ActionText);
 		BackActionHint->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 }
@@ -662,11 +611,7 @@ bool UMD_GalleryWidget::MoveGalleryFocus2D(FIntPoint Direction)
 
 	if (GalleryScrollBox)
 	{
-		GalleryScrollBox->ScrollWidgetIntoView(
-			TargetWidget,
-			false,
-			EDescendantScrollDestination::IntoView,
-			12.0f);
+		GalleryScrollBox->ScrollWidgetIntoView(TargetWidget, false, EDescendantScrollDestination::IntoView, 12.0f);
 	}
 	return true;
 }
@@ -691,10 +636,7 @@ FVector2D UMD_GalleryWidget::ApplyStickDeadZone(FVector2D Input) const
 		return FVector2D::ZeroVector;
 	}
 
-	const float NormalizedMagnitude = FMath::GetMappedRangeValueClamped(
-		FVector2D(InspectStickDeadZone, 1.0f),
-		FVector2D(0.0f, 1.0f),
-		Magnitude);
+	const float NormalizedMagnitude = FMath::GetMappedRangeValueClamped(FVector2D(InspectStickDeadZone, 1.0f), FVector2D(0.0f, 1.0f), Magnitude);
 	return Input.GetSafeNormal() * NormalizedMagnitude;
 }
 
@@ -733,8 +675,7 @@ bool UMD_GalleryWidget::UpdatePreviewAnalogAxis(FKey Key, float Value)
 
 bool UMD_GalleryWidget::IsBackAction(const FKeyEvent& KeyEvent)
 {
-	return KeyEvent.GetKey() == EKeys::Escape
-		|| KeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Right;
+	return KeyEvent.GetKey() == EKeys::Escape || KeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Right;
 }
 
 FIntPoint UMD_GalleryWidget::GetDigitalNavigationDirection(const FKeyEvent& KeyEvent)
@@ -746,11 +687,16 @@ FIntPoint UMD_GalleryWidget::GetDigitalNavigationDirection(const FKeyEvent& KeyE
 
 	switch (FSlateApplication::Get().GetNavigationDirectionFromKey(KeyEvent))
 	{
-	case EUINavigation::Left: return FIntPoint(-1, 0);
-	case EUINavigation::Right: return FIntPoint(1, 0);
-	case EUINavigation::Up: return FIntPoint(0, -1);
-	case EUINavigation::Down: return FIntPoint(0, 1);
-	default: return FIntPoint::ZeroValue;
+	case EUINavigation::Left:
+		return FIntPoint(-1, 0);
+	case EUINavigation::Right:
+		return FIntPoint(1, 0);
+	case EUINavigation::Up:
+		return FIntPoint(0, -1);
+	case EUINavigation::Down:
+		return FIntPoint(0, 1);
+	default:
+		return FIntPoint::ZeroValue;
 	}
 }
 
@@ -765,10 +711,7 @@ bool UMD_GalleryWidget::IsPointerOverPreviewArea(const FPointerEvent& MouseEvent
 	const FVector2D LocalPosition = AreaGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 	const FVector2D LocalSize = AreaGeometry.GetLocalSize();
 
-	return LocalPosition.X >= 0.0f
-		&& LocalPosition.Y >= 0.0f
-		&& LocalPosition.X <= LocalSize.X
-		&& LocalPosition.Y <= LocalSize.Y;
+	return LocalPosition.X >= 0.0f && LocalPosition.Y >= 0.0f && LocalPosition.X <= LocalSize.X && LocalPosition.Y <= LocalSize.Y;
 }
 
 FReply UMD_GalleryWidget::HandleKeyboardPanKeyDown(const FKeyEvent& KeyEvent)

@@ -14,17 +14,8 @@ enum class EMDInputDeviceType : uint8
 	Gamepad UMETA(DisplayName = "Gamepad")
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
-	FMDInputDeviceTypeChanged,
-	EMDInputDeviceType, PreviousDevice,
-	EMDInputDeviceType, NewDevice);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FMDInputDeviceTypeChanged, EMDInputDeviceType, PreviousDevice, EMDInputDeviceType, NewDevice);
 
-/**
- * Blueprint-facing source for the last meaningful input device.
- *
- * The subsystem observes Slate input without consuming it. UI widgets can bind to
- * OnInputDeviceChanged and choose their own icon, animation and visibility behavior.
- */
 UCLASS()
 class MORBUSDEI_API UMD_InputDeviceSubsystem : public UGameInstanceSubsystem
 {
@@ -43,11 +34,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "MD|Input Device")
 	bool IsUsingGamepad() const { return ActiveInputDevice == EMDInputDeviceType::Gamepad; }
 
-	/** Ignores resting-stick and trigger noise below this value. */
 	UFUNCTION(BlueprintCallable, Category = "MD|Input Device")
 	void SetGamepadAnalogActivationThreshold(float NewThreshold);
 
-	/** Ignores tiny cursor deltas caused by platform or viewport jitter. */
 	UFUNCTION(BlueprintCallable, Category = "MD|Input Device")
 	void SetMouseMoveActivationThreshold(float NewThreshold);
 

@@ -1,20 +1,16 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "Interaction/MD_PlayerInspectComponent.h"
 
 #include "Components/SceneComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/MD_InspectableComponent.h"
-#include "GameFramework/Character.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
-// Sets default values
 UMD_PlayerInspectComponent::UMD_PlayerInspectComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
-
 }
 
 void UMD_PlayerInspectComponent::BeginPlay()
@@ -25,11 +21,7 @@ void UMD_PlayerInspectComponent::BeginPlay()
 	EnsureInspectPivot();
 }
 
-void UMD_PlayerInspectComponent::TickComponent(
-	float DeltaTime,
-	ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction
-)
+void UMD_PlayerInspectComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -69,7 +61,7 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 	{
 		return false;
 	}
-	
+
 	if (!IsValid(Inspectable) || !Inspectable->CanInspect())
 	{
 		return false;
@@ -86,12 +78,12 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 	}
 
 	EnsureInspectPivot();
-	
+
 	if (!IsValid(InspectPivot))
 	{
 		return false;
 	}
-	
+
 	StopOwnerMovementForInspect();
 
 	if (!UpdateInspectViewFromCamera())
@@ -100,13 +92,13 @@ bool UMD_PlayerInspectComponent::StartInspect(UMD_InspectableComponent* Inspecta
 	}
 
 	CurrentInspectDistance = Inspectable->GetDesiredInspectDistance();
-	
+
 	TargetInspectDistance = CurrentInspectDistance;
-	
+
 	RotationVelocity = FVector2D::ZeroVector;
 	CurrentInspectYaw = 0.f;
 	CurrentInspectPitch = 0.f;
-	
+
 	CurrentInspectable = Inspectable;
 
 	const FTransform DesiredPivotTransform = MakeDesiredPivotTransform(CurrentInspectable);
@@ -167,9 +159,7 @@ bool UMD_PlayerInspectComponent::HasValidInspectSession() const
 
 void UMD_PlayerInspectComponent::ForceCleanupInspection()
 {
-	UMD_InspectableComponent* InspectableToRestore = IsValid(CurrentInspectable)
-		? CurrentInspectable
-		: nullptr;
+	UMD_InspectableComponent* InspectableToRestore = IsValid(CurrentInspectable) ? CurrentInspectable : nullptr;
 
 	CurrentInspectable = nullptr;
 
@@ -203,7 +193,7 @@ void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 		ForceCleanupInspection();
 		return;
 	}
-	
+
 	if (!UpdateInspectViewFromCamera())
 	{
 		ForceCleanupInspection();
@@ -220,7 +210,7 @@ void UMD_PlayerInspectComponent::UpdateEnterTransition(float DeltaTime)
 	const float SmoothAlpha = FMath::InterpEaseInOut(0.f, 1.f, Alpha, 2.f);
 
 	FTransform NewTransform;
-	NewTransform.Blend(TransitionStartTransform,TransitionTargetTransform,SmoothAlpha);
+	NewTransform.Blend(TransitionStartTransform, TransitionTargetTransform, SmoothAlpha);
 
 	InspectPivot->SetWorldTransform(NewTransform);
 
@@ -245,10 +235,10 @@ void UMD_PlayerInspectComponent::UpdateExitTransition(float DeltaTime)
 
 	const float Alpha = Duration <= KINDA_SMALL_NUMBER ? 1.f : FMath::Clamp(TransitionElapsed / Duration, 0.f, 1.f);
 
-	const float SmoothAlpha =FMath::InterpEaseInOut(0.f, 1.f, Alpha, 2.f);
+	const float SmoothAlpha = FMath::InterpEaseInOut(0.f, 1.f, Alpha, 2.f);
 
 	FTransform NewTransform;
-	NewTransform.Blend(TransitionStartTransform,TransitionTargetTransform,SmoothAlpha);
+	NewTransform.Blend(TransitionStartTransform, TransitionTargetTransform, SmoothAlpha);
 
 	InspectPivot->SetWorldTransform(NewTransform);
 
@@ -365,7 +355,7 @@ void UMD_PlayerInspectComponent::UpdateSmoothZoom(float DeltaTime)
 		ForceCleanupInspection();
 		return;
 	}
-	
+
 	const float NewDistance = FMath::FInterpTo(CurrentInspectDistance, TargetInspectDistance, DeltaTime, ZoomInterpSpeed);
 
 	CurrentInspectDistance = NewDistance;

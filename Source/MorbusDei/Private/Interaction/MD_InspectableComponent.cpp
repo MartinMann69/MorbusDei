@@ -1,8 +1,7 @@
 #include "Interaction/MD_InspectableComponent.h"
 
-#include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
-#include "Components/WidgetComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -16,7 +15,7 @@ bool UMD_InspectableComponent::CanInspect() const
 	return bCanInspect && !bIsInspecting;
 }
 
-bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* InspectPivot)
+bool UMD_InspectableComponent::StartInspect(APawn* Interactor, USceneComponent* InspectPivot)
 {
 	AActor* Owner = GetOwner();
 
@@ -24,7 +23,7 @@ bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* I
 	{
 		return false;
 	}
-	
+
 	if (InspectSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, InspectSound, Owner->GetActorLocation());
@@ -39,15 +38,9 @@ bool UMD_InspectableComponent::StartInspect(APawn* Interactor,USceneComponent* I
 
 	const FVector OriginalBoundsCenter = GetInspectableBoundsCenter();
 
-	InspectPivot->SetWorldLocationAndRotation(
-		OriginalBoundsCenter,
-		Owner->GetActorRotation()
-	);
+	InspectPivot->SetWorldLocationAndRotation(OriginalBoundsCenter, Owner->GetActorRotation());
 
-	Owner->AttachToComponent(
-		InspectPivot,
-		FAttachmentTransformRules::KeepWorldTransform
-	);
+	Owner->AttachToComponent(InspectPivot, FAttachmentTransformRules::KeepWorldTransform);
 
 	return true;
 }
@@ -63,12 +56,7 @@ void UMD_InspectableComponent::EndInspect()
 
 	Owner->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
-	Owner->SetActorTransform(
-		OriginalTransform,
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics
-	);
+	Owner->SetActorTransform(OriginalTransform, false, nullptr, ETeleportType::TeleportPhysics);
 
 	RestoreOwnerPhysics();
 	Owner->SetActorEnableCollision(bOriginalActorCollisionEnabled);

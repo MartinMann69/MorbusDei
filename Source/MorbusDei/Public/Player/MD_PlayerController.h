@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -9,18 +7,15 @@
 class UMD_PauseMenuWidget;
 class UMD_MenuLayerScreenWidget;
 
-/** Owns local pause-menu lifetime, input mode and guarded close transitions. */
 UCLASS()
 class MORBUSDEI_API AMD_PlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
-	/** Opens the pause menu through the existing UI layer bridge. */
 	UFUNCTION(BlueprintCallable, Category = "MD|UI|Pause Menu")
 	bool OpenPauseMenu();
 
-	/** Requests one guarded close transition. Duplicate requests are rejected. */
 	UFUNCTION(BlueprintCallable, Category = "MD|UI|Pause Menu")
 	bool RequestClosePauseMenu();
 

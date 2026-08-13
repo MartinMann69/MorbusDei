@@ -1,7 +1,6 @@
 #include "UI/MD_PlayerInfoWidget.h"
 
 #include "Audio/MD_AudioZone.h"
-#include "Components/TextBlock.h"
 
 void UMD_PlayerInfoWidget::NativeConstruct()
 {

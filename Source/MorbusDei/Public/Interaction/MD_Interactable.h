@@ -1,16 +1,12 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MD_InteractInterface.h"
 #include "TimerManager.h"
-
 #include "MD_Interactable.generated.h"
 
 class USoundBase;
-class UStaticMeshComponent;
 class UMD_HighlightComponent;
 class UMD_InspectableComponent;
 class AMD_AudioZone;
@@ -23,6 +19,9 @@ class MORBUSDEI_API AMD_Interactable : public AActor, public IMD_InteractInterfa
 public:
 	AMD_Interactable();
 	virtual void BeginPlay() override;
+	virtual void Interact_Implementation(APawn* Interactor) override;
+	virtual bool CanInteract_Implementation() const override;
+	virtual void Highlight_Implementation(bool bHighlight) override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -34,37 +33,37 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	USceneComponent* ToggleableObjects;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Components")
 	UMD_HighlightComponent* HighlightComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="MD|Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MD|Components")
 	UMD_InspectableComponent* InspectableComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="MD|Interaction")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MD|Interaction")
 	bool bCanInteract = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MD|Audio")
 	TSubclassOf<AMD_AudioZone> AudioZoneClass = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MD|Audio")
 	bool bSpawnAudioZoneOnlyOnce = true;
 
 	UPROPERTY()
 	AMD_AudioZone* SpawnedAudioZone = nullptr;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction")
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MD|Audio|Interaction")
 	USoundBase* InteractionSound = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Inspection")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MD|Audio|Inspection")
 	USoundBase* InspectSound = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MD|Audio|Interaction", meta=(ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "MD|Audio|Interaction", meta = (ClampMin = "0.0"))
 	float VoiceoverDelayAfterInteractionSound = 0.0f;
-	
+
 	UFUNCTION()
 	void HandleSpawnedAudioZoneDestroyed(AActor* DestroyedActor);
 
-	UFUNCTION(BlueprintImplementableEvent, Category="MD|Audio")
+	UFUNCTION(BlueprintImplementableEvent, Category = "MD|Audio")
 	void OnSpawnedAudioZoneFinished();
 
 	void PlayAssignedAudioZone(APawn* Interactor);
@@ -73,11 +72,4 @@ protected:
 
 	FTimerHandle VoiceoverDelayTimer;
 	bool bVoiceoverStartPending = false;
-
-
-public:
-	virtual void Interact_Implementation(APawn* Interactor) override;
-	virtual void SetInteractPromptVisible_Implementation(bool bVisible) override;
-	virtual bool CanInteract_Implementation() const override;
-	virtual void Highlight_Implementation(bool bHighlight) override;
 };

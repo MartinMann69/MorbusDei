@@ -72,11 +72,12 @@ UMD_SceneAuditEditorWidget::UMD_SceneAuditEditorWidget()
 	};
 }
 
-UMD_SceneAuditListView::UMD_SceneAuditListView(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UMD_SceneAuditListView::UMD_SceneAuditListView(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	static const FSoftClassPath EntryWidgetClassPath(
-		TEXT("/Game/MorbusDei/Blueprints/WBP_SceneAuditIssueRow.WBP_SceneAuditIssueRow_C"));
+	static const FSoftClassPath EntryWidgetClassPath
+	(
+		TEXT("/Game/MorbusDei/Blueprints/WBP_SceneAuditIssueRow.WBP_SceneAuditIssueRow_C")
+	);
 
 	if (UClass* LoadedEntryWidgetClass = EntryWidgetClassPath.TryLoadClass<UUserWidget>())
 	{
@@ -149,11 +150,7 @@ void UMD_SceneAuditIssueRowWidget::BuildNativeWidgetTree()
 	IssueText = MDSceneAuditWidget::CreateText(WidgetTree, TEXT("Issue"), FText::GetEmpty());
 	MDSceneAuditWidget::ConfigureColumn(Row->AddChildToHorizontalBox(IssueText), 0.9f);
 
-	SelectButton = MDSceneAuditWidget::CreateButton(
-		WidgetTree,
-		TEXT("SelectActorButton"),
-		TEXT("SelectActorButtonText"),
-		LOCTEXT("SelectActorButton", "Select"));
+	SelectButton = MDSceneAuditWidget::CreateButton(WidgetTree, TEXT("SelectActorButton"), TEXT("SelectActorButtonText"), LOCTEXT("SelectActorButton", "Select"));
 	UHorizontalBoxSlot* SelectSlot = Row->AddChildToHorizontalBox(SelectButton);
 	SelectSlot->SetSize(FSlateChildSize(ESlateSizeRule::Automatic));
 	SelectSlot->SetPadding(FMargin(6.0f, 1.0f));
@@ -273,18 +270,11 @@ void UMD_SceneAuditEditorWidget::BuildNativeWidgetTree()
 		return Slot;
 	};
 
-	UTextBlock* TitleText = MDSceneAuditWidget::CreateText(
-		WidgetTree,
-		TEXT("Title"),
-		LOCTEXT("SceneAuditTitle", "Scene Material Audit"),
-		20);
+	UTextBlock* TitleText = MDSceneAuditWidget::CreateText(WidgetTree, TEXT("Title"), LOCTEXT("SceneAuditTitle", "Scene Material Audit"), 20);
 	TitleText->SetColorAndOpacity(FSlateColor(FLinearColor(0.45f, 0.78f, 1.0f)));
 	AddVerticalWidget(TitleText, FMargin(2.0f, 2.0f, 2.0f, 4.0f), ESlateSizeRule::Automatic);
 
-	UTextBlock* DescriptionText = MDSceneAuditWidget::CreateText(
-		WidgetTree,
-		TEXT("DescriptionText"),
-		LOCTEXT("SceneAuditHelp", "Finds mesh material slots that are empty or still use an Unreal default material."));
+	UTextBlock* DescriptionText = MDSceneAuditWidget::CreateText(WidgetTree, TEXT("DescriptionText"), LOCTEXT("SceneAuditHelp", "Finds mesh material slots that are empty or still use an Unreal default material."));
 	DescriptionText->SetAutoWrapText(true);
 	AddVerticalWidget(DescriptionText, FMargin(2.0f, 0.0f, 2.0f, 10.0f), ESlateSizeRule::Automatic);
 
@@ -405,9 +395,7 @@ TArray<FMD_MaterialAuditIssue> UMD_SceneAuditEditorWidget::RefreshMaterialAudit(
 
 			for (int32 MaterialIndex = 0; MaterialIndex < MaterialCount; ++MaterialIndex)
 			{
-				const FName MaterialSlotName = MaterialSlotNames.IsValidIndex(MaterialIndex)
-					? MaterialSlotNames[MaterialIndex]
-					: NAME_None;
+				const FName MaterialSlotName = MaterialSlotNames.IsValidIndex(MaterialIndex) ? MaterialSlotNames[MaterialIndex] : NAME_None;
 
 				UMaterialInterface* Material = MeshComponent->GetMaterial(MaterialIndex);
 				if (!Material)

@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Audio/MD_AudioZone.h"
 
 #include "Components/AudioComponent.h"
@@ -18,7 +15,7 @@ bool AMD_AudioZone::bLastBroadcastVoiceLinePlaying = false;
 AMD_AudioZone::AMD_AudioZone()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	
+
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = Root;
 
@@ -44,7 +41,7 @@ void AMD_AudioZone::OnConstruction(const FTransform& Transform)
 void AMD_AudioZone::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	UpdateTriggerState();
 
 	if (UsesTrigger())
@@ -68,9 +65,9 @@ void AMD_AudioZone::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	ClearActiveVoiceLineIfNeeded();
 	ClearActiveBackgroundMusicIfNeeded();
-	
+
 	BroadcastVoiceLinePlaybackState();
-	
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -80,11 +77,11 @@ void AMD_AudioZone::PlayZoneSound()
 	{
 		return;
 	}
-	
+
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
 	bSkipRequested = false;
-	
+
 	ConfigureAudioComponent();
 	StopCompetingVoiceLine();
 	StopCompetingBackgroundMusic();
@@ -109,29 +106,23 @@ void AMD_AudioZone::PlayZoneSound()
 	}
 
 	OnZonePlaybackStarted.Broadcast();
-	
+
 	BroadcastVoiceLinePlaybackState();
 
 	SpawnTriggeredNiagaraEffect();
-	
+
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
 	if (MaxPlaybackDuration > 0.0f)
 	{
-		GetWorldTimerManager().SetTimer(
-			PlaybackLimitTimer,
-			this,
-			&AMD_AudioZone::HandlePlaybackLimitReached,
-			MaxPlaybackDuration,
-			false
-		);
+		GetWorldTimerManager().SetTimer(PlaybackLimitTimer, this, &AMD_AudioZone::HandlePlaybackLimitReached, MaxPlaybackDuration, false);
 	}
 }
 
 void AMD_AudioZone::StopZoneSound()
 {
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
-	
+
 	if (!AudioComponent->IsPlaying())
 	{
 		return;
@@ -149,13 +140,7 @@ void AMD_AudioZone::StopZoneSound()
 	}
 }
 
-void AMD_AudioZone::HandleBeginOverlap(
-	UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor,
-	UPrimitiveComponent* OtherComponent,
-	int32 OtherBodyIndex,
-	bool bFromSweep,
-	const FHitResult& SweepResult)
+void AMD_AudioZone::HandleBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bPlayWhenPlayerEnters && IsPlayerActor(OtherActor))
 	{
@@ -163,11 +148,7 @@ void AMD_AudioZone::HandleBeginOverlap(
 	}
 }
 
-void AMD_AudioZone::HandleEndOverlap(
-	UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor,
-	UPrimitiveComponent* OtherComponent,
-	int32 OtherBodyIndex)
+void AMD_AudioZone::HandleEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex)
 {
 	if (bStopWhenPlayerLeaves && IsPlayerActor(OtherActor))
 	{
@@ -200,7 +181,6 @@ void AMD_AudioZone::SkipZoneSound()
 bool AMD_AudioZone::TrySkipActiveVoiceLine()
 {
 	AMD_AudioZone* ActiveZone = ActiveVoiceLineZone.Get();
-	
 	if (!ActiveZone || !ActiveZone->IsZoneSoundPlaying())
 	{
 		return false;
@@ -213,7 +193,6 @@ bool AMD_AudioZone::TrySkipActiveVoiceLine()
 bool AMD_AudioZone::IsAnyVoiceLinePlaying()
 {
 	AMD_AudioZone* ActiveZone = ActiveVoiceLineZone.Get();
-	
 
 	return IsValid(ActiveZone) && ActiveZone->IsZoneSoundPlaying();
 }
@@ -233,7 +212,6 @@ void AMD_AudioZone::BroadcastVoiceLinePlaybackState()
 
 void AMD_AudioZone::HandleAudioFinished()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Destroying audio component"));
 	GetWorldTimerManager().ClearTimer(PlaybackLimitTimer);
 
 	const bool bFinishedNaturally = !bStopRequested;
@@ -242,10 +220,10 @@ void AMD_AudioZone::HandleAudioFinished()
 	bStopRequested = false;
 	bPlaybackLimitReached = false;
 	bSkipRequested = false;
-	
+
 	ClearActiveVoiceLineIfNeeded();
 	ClearActiveBackgroundMusicIfNeeded();
-	
+
 	BroadcastVoiceLinePlaybackState();
 
 	if (bShouldDestroy)
@@ -353,36 +331,30 @@ void AMD_AudioZone::SpawnTriggeredNiagaraEffect() const
 
 	switch (NiagaraSpawnTarget)
 	{
-	case EMD_AudioZoneNiagaraSpawnTarget::Player:
-	{
-		const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
-		if (!PlayerPawn)
+		case EMD_AudioZoneNiagaraSpawnTarget::Player:
 		{
-			return;
+			const APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+			if (!PlayerPawn)
+			{
+				return;
+			}
+
+			SpawnTransform = PlayerNiagaraSpawnOffset * PlayerPawn->GetActorTransform();
+			break;
 		}
 
-		SpawnTransform = PlayerNiagaraSpawnOffset * PlayerPawn->GetActorTransform();
-		break;
-	}
-
-	case EMD_AudioZoneNiagaraSpawnTarget::Actor:
-	default:
-	{
-		if (!IsValid(NiagaraSpawnActor))
+		case EMD_AudioZoneNiagaraSpawnTarget::Actor:
+		default:
 		{
-			return;
+			if (!IsValid(NiagaraSpawnActor))
+			{
+				return;
+			}
+
+			SpawnTransform = NiagaraSpawnActor->GetActorTransform();
+			break;
 		}
-
-		SpawnTransform = NiagaraSpawnActor->GetActorTransform();
-		break;
-	}
 	}
 
-	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-		this,
-		TriggerNiagaraEffect,
-		SpawnTransform.GetLocation(),
-		SpawnTransform.Rotator(),
-		SpawnTransform.GetScale3D()
-	);
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, TriggerNiagaraEffect, SpawnTransform.GetLocation(), SpawnTransform.Rotator(), SpawnTransform.GetScale3D());
 }

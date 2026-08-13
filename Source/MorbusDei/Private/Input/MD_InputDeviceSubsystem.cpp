@@ -10,35 +10,20 @@
 class FMDInputDevicePreProcessor final : public IInputProcessor
 {
 public:
-	explicit FMDInputDevicePreProcessor(UMD_InputDeviceSubsystem* InSubsystem)
-		: Subsystem(InSubsystem)
-	{
-	}
+	explicit FMDInputDevicePreProcessor(UMD_InputDeviceSubsystem* InSubsystem) : Subsystem(InSubsystem) {}
 
-	virtual void Tick(
-		const float DeltaTime,
-		FSlateApplication& SlateApp,
-		TSharedRef<ICursor> Cursor) override
-	{
-	}
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {}
 
-	virtual bool HandleKeyDownEvent(
-		FSlateApplication& SlateApp,
-		const FKeyEvent& InKeyEvent) override
+	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override
 	{
 		NotifyKey(SlateApp, InKeyEvent);
 		return false;
 	}
 
-	virtual bool HandleAnalogInputEvent(
-		FSlateApplication& SlateApp,
-		const FAnalogInputEvent& InAnalogInputEvent) override
+	virtual bool HandleAnalogInputEvent(FSlateApplication& SlateApp, const FAnalogInputEvent& InAnalogInputEvent) override
 	{
 		UMD_InputDeviceSubsystem* InputDeviceSubsystem = Subsystem.Get();
-		if (InputDeviceSubsystem
-			&& InAnalogInputEvent.GetKey().IsGamepadKey()
-			&& FMath::Abs(InAnalogInputEvent.GetAnalogValue())
-				>= InputDeviceSubsystem->GamepadAnalogActivationThreshold)
+		if (InputDeviceSubsystem && InAnalogInputEvent.GetKey().IsGamepadKey() && FMath::Abs(InAnalogInputEvent.GetAnalogValue()) >= InputDeviceSubsystem->GamepadAnalogActivationThreshold)
 		{
 			GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::GamepadNavigation);
 			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::Gamepad);
@@ -46,24 +31,17 @@ public:
 		return false;
 	}
 
-	virtual bool HandleMouseMoveEvent(
-		FSlateApplication& SlateApp,
-		const FPointerEvent& MouseEvent) override
+	virtual bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
 	{
 		UMD_InputDeviceSubsystem* InputDeviceSubsystem = Subsystem.Get();
-		if (InputDeviceSubsystem
-			&& IsPointerInsideGameViewport(SlateApp, MouseEvent)
-			&& MouseEvent.GetCursorDelta().SizeSquared()
-				>= FMath::Square(InputDeviceSubsystem->MouseMoveActivationThreshold))
+		if (InputDeviceSubsystem && IsPointerInsideGameViewport(SlateApp, MouseEvent) && MouseEvent.GetCursorDelta().SizeSquared() >= FMath::Square(InputDeviceSubsystem->MouseMoveActivationThreshold))
 		{
 			NotifyPointerInput();
 		}
 		return false;
 	}
 
-	virtual bool HandleMouseButtonDownEvent(
-		FSlateApplication& SlateApp,
-		const FPointerEvent& MouseEvent) override
+	virtual bool HandleMouseButtonDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
 	{
 		if (IsPointerInsideGameViewport(SlateApp, MouseEvent))
 		{
@@ -72,9 +50,7 @@ public:
 		return false;
 	}
 
-	virtual bool HandleMouseButtonDoubleClickEvent(
-		FSlateApplication& SlateApp,
-		const FPointerEvent& MouseEvent) override
+	virtual bool HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override
 	{
 		if (IsPointerInsideGameViewport(SlateApp, MouseEvent))
 		{
@@ -83,13 +59,9 @@ public:
 		return false;
 	}
 
-	virtual bool HandleMouseWheelOrGestureEvent(
-		FSlateApplication& SlateApp,
-		const FPointerEvent& InWheelEvent,
-		const FPointerEvent* InGestureEvent) override
+	virtual bool HandleMouseWheelOrGestureEvent(FSlateApplication& SlateApp, const FPointerEvent& InWheelEvent, const FPointerEvent* InGestureEvent) override
 	{
-		if (IsPointerInsideGameViewport(SlateApp, InWheelEvent)
-			&& (!FMath::IsNearlyZero(InWheelEvent.GetWheelDelta()) || InGestureEvent))
+		if (IsPointerInsideGameViewport(SlateApp, InWheelEvent) && (!FMath::IsNearlyZero(InWheelEvent.GetWheelDelta()) || InGestureEvent))
 		{
 			NotifyPointerInput();
 		}
@@ -105,8 +77,7 @@ private:
 	static bool IsPointerInsideGameViewport(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
 	{
 		const TSharedPtr<SViewport> GameViewport = SlateApp.GetGameViewport();
-		return GameViewport.IsValid()
-			&& GameViewport->GetCachedGeometry().IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+		return GameViewport.IsValid() && GameViewport->GetCachedGeometry().IsUnderLocation(MouseEvent.GetScreenSpacePosition());
 	}
 
 	void NotifyKey(FSlateApplication& SlateApp, const FKeyEvent& KeyEvent) const
@@ -124,11 +95,7 @@ private:
 			InputDeviceSubsystem->NotifyInputDevice(EMDInputDeviceType::KeyboardMouse);
 			const EUINavigation NavigationDirection = SlateApp.GetNavigationDirectionFromKey(KeyEvent);
 			const EUINavigationAction NavigationAction = SlateApp.GetNavigationActionFromKey(KeyEvent);
-			if (NavigationDirection != EUINavigation::Invalid
-				|| NavigationAction != EUINavigationAction::Invalid
-				|| Key == EKeys::Enter
-				|| Key == EKeys::SpaceBar
-				|| Key == EKeys::Escape)
+			if (NavigationDirection != EUINavigation::Invalid || NavigationAction != EUINavigationAction::Invalid || Key == EKeys::Enter || Key == EKeys::SpaceBar || Key == EKeys::Escape)
 			{
 				GameUIFocusInputDeviceTracker::SetInputMode(EGameUIFocusInputMode::KeyboardNavigation);
 			}

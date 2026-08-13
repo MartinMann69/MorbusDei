@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Containers/Ticker.h"
 #include "Blueprint/UserWidget.h"
+#include "Containers/Ticker.h"
 #include "MD_ActionHintWidget.generated.h"
 
 class USoundBase;
@@ -11,7 +11,6 @@ enum class EMDInputDeviceType : uint8;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMDActionHintPresentationChanged, bool, bUsingGamepad);
 
-/** Reusable, device-aware action hint presentation with lightweight feedback. */
 UCLASS(Abstract, Blueprintable)
 class MORBUSDEI_API UMD_ActionHintWidget : public UUserWidget
 {
@@ -39,7 +38,7 @@ protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
-	/** Kept compatible with the names already used by WBP_ActionHint. */
+	/** Matches the existing WBP_ActionHint bindings. */
 	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|UI|Action Hint")
 	TObjectPtr<UTextBlock> BackKeyText = nullptr;
 
@@ -55,7 +54,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|UI|Action Hint|Text")
 	FText ActionText;
 
-	/** Font scale used when the displayed key text contains an explicit line break. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|UI|Action Hint|Text", meta = (ClampMin = "0.25", ClampMax = "1.0"))
 	float CompactKeyFontScale = 0.62f;
 

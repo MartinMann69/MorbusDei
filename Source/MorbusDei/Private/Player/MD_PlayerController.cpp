@@ -23,11 +23,9 @@ bool AMD_PlayerController::OpenPauseMenu()
 
 	if (!ActivePauseMenuWidget.IsValid())
 	{
-		UE_LOG(LogMDPlayerController, Error,
-			TEXT("Pause layer toggle did not construct a UMD_PauseMenuWidget. Reparent WBP_PauseMenu to the native pause widget class."));
+		UE_LOG(LogMDPlayerController, Error, TEXT("Pause layer toggle did not construct a UMD_PauseMenuWidget. Reparent WBP_PauseMenu to the native pause widget class."));
 
-		// Roll the Blueprint layer operation back before restoring gameplay. This
-		// prevents a wrong widget class or failed construction from trapping input.
+		// Roll back a layer that failed to create the expected widget.
 		PauseMenuState = EPauseMenuState::Open;
 		ExecutePauseMenuLayerToggle();
 		PauseMenuState = EPauseMenuState::Closed;
@@ -86,16 +84,11 @@ void AMD_PlayerController::RegisterPauseMenuWidget(UMD_PauseMenuWidget* PauseMen
 		}
 
 		PreviousWidget->OnCloseTransitionFinished().Remove(CloseTransitionFinishedHandle);
-		UE_LOG(LogMDPlayerController, Warning,
-			TEXT("Replacing an active pause widget. Previous=%s New=%s"),
-			*GetNameSafe(PreviousWidget),
-			*GetNameSafe(PauseMenuWidget));
+		UE_LOG(LogMDPlayerController, Warning, TEXT("Replacing an active pause widget. Previous=%s New=%s"), *GetNameSafe(PreviousWidget), *GetNameSafe(PauseMenuWidget));
 	}
 
 	ActivePauseMenuWidget = PauseMenuWidget;
-	CloseTransitionFinishedHandle = PauseMenuWidget->OnCloseTransitionFinished().AddUObject(
-		this,
-		&AMD_PlayerController::HandleCloseTransitionFinished);
+	CloseTransitionFinishedHandle = PauseMenuWidget->OnCloseTransitionFinished().AddUObject(this, &AMD_PlayerController::HandleCloseTransitionFinished);
 	PauseMenuState = EPauseMenuState::Open;
 }
 
@@ -141,7 +134,6 @@ void AMD_PlayerController::FinalizePauseMenuClose()
 	const bool bLayerToggleExecuted = ExecutePauseMenuLayerToggle();
 	if (!bLayerToggleExecuted && PauseMenuWidget)
 	{
-		// Fail safe: never leave the player trapped if the legacy layer bridge is unavailable.
 		PauseMenuWidget->RemoveFromParent();
 	}
 
@@ -152,14 +144,12 @@ void AMD_PlayerController::FinalizePauseMenuClose()
 
 bool AMD_PlayerController::ExecutePauseMenuLayerToggle()
 {
-	// The layer stack is still Blueprint-authored. Keep this compatibility bridge
-	// private so all gameplay callers must pass through the guarded native API.
+	// The Blueprint layer stack still exposes this compatibility function.
 	static const FName ToggleFunctionName(TEXT("TogglePauseMenu"));
 	UFunction* ToggleFunction = FindFunction(ToggleFunctionName);
 	if (!ToggleFunction)
 	{
-		UE_LOG(LogMDPlayerController, Error,
-			TEXT("BP_MainPlayerController must provide the existing TogglePauseMenu layer bridge."));
+		UE_LOG(LogMDPlayerController, Error, TEXT("BP_MainPlayerController must provide the existing TogglePauseMenu layer bridge."));
 		return false;
 	}
 
@@ -180,9 +170,7 @@ bool AMD_PlayerController::ApplyPauseMenuInput(UMD_PauseMenuWidget* PauseMenuWid
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	SetInputMode(InputMode);
 
-	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-		: nullptr;
+	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>() : nullptr;
 	bShowMouseCursor = !InputDeviceSubsystem || !InputDeviceSubsystem->IsUsingGamepad();
 	return true;
 }
@@ -200,29 +188,25 @@ bool AMD_PlayerController::RestorePauseMenuFocus()
 	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 	SetInputMode(InputMode);
 
-	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>()
-		: nullptr;
+	const UMD_InputDeviceSubsystem* InputDeviceSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMD_InputDeviceSubsystem>() : nullptr;
 	bShowMouseCursor = !InputDeviceSubsystem || !InputDeviceSubsystem->IsUsingGamepad();
 
-	// The world remains paused, so a world-timer next-tick request may never run.
-	// Defer through the core ticker and initialize directly after the layer pop.
+	// A world timer cannot run reliably while the world remains paused.
 	const TWeakObjectPtr<AMD_PlayerController> WeakPlayerController(this);
 	const TWeakObjectPtr<UMD_PauseMenuWidget> WeakPauseMenuWidget(PauseMenuWidget);
-	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
-		[WeakPlayerController, WeakPauseMenuWidget](const float DeltaTime)
-		{
-			AMD_PlayerController* PlayerController = WeakPlayerController.Get();
-			UMD_PauseMenuWidget* DeferredPauseMenuWidget = WeakPauseMenuWidget.Get();
-			if (PlayerController
-				&& DeferredPauseMenuWidget
-				&& PlayerController->PauseMenuState == EPauseMenuState::Open
-				&& PlayerController->ActivePauseMenuWidget.Get() == DeferredPauseMenuWidget)
+	FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateLambda([WeakPlayerController, WeakPauseMenuWidget](const float DeltaTime)
 			{
-				DeferredPauseMenuWidget->InitializeFocusScreen(true);
+				AMD_PlayerController* PlayerController = WeakPlayerController.Get();
+				UMD_PauseMenuWidget* DeferredPauseMenuWidget = WeakPauseMenuWidget.Get();
+				if (PlayerController && DeferredPauseMenuWidget && PlayerController->PauseMenuState == EPauseMenuState::Open && PlayerController->ActivePauseMenuWidget.Get() == DeferredPauseMenuWidget)
+				{
+					DeferredPauseMenuWidget->InitializeFocusScreen(true);
+				}
+				return false;
 			}
-			return false;
-		}));
+		)
+	);
 	return true;
 }
 
@@ -258,4 +242,3 @@ void AMD_PlayerController::RestorePauseMenuFullTick()
 	bShouldPerformFullTickWhenPaused = bPreviousFullTickWhenPaused;
 	bPauseMenuOverridesFullTick = false;
 }
-

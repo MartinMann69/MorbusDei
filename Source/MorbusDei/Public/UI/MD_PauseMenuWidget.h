@@ -14,10 +14,6 @@ enum class EMDInputDeviceType : uint8;
 class UMD_PauseMenuWidget;
 DECLARE_MULTICAST_DELEGATE_OneParam(FMDPauseMenuCloseTransitionFinished, UMD_PauseMenuWidget*);
 
-/**
- * Game-specific pause screen behavior. The focus plugin owns navigation; the
- * player controller remains authoritative over pause state and layer lifetime.
- */
 UCLASS(Abstract, Blueprintable)
 class MORBUSDEI_API UMD_PauseMenuWidget : public UGameUIFocusScreenWidgetBase
 {
@@ -26,13 +22,9 @@ class MORBUSDEI_API UMD_PauseMenuWidget : public UGameUIFocusScreenWidgetBase
 public:
 	UMD_PauseMenuWidget(const FObjectInitializer& ObjectInitializer);
 
-	/** Starts the guarded close presentation. Returns false for duplicate requests. */
 	bool BeginCloseTransition();
 
-	FMDPauseMenuCloseTransitionFinished& OnCloseTransitionFinished()
-	{
-		return CloseTransitionFinished;
-	}
+	FMDPauseMenuCloseTransitionFinished& OnCloseTransitionFinished() { return CloseTransitionFinished; }
 
 protected:
 	virtual void NativeConstruct() override;
@@ -42,7 +34,7 @@ protected:
 	virtual FReply NativeOnPreviewMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual bool HandleRootBackAction_Implementation() override;
 
-	/** Optional designer-authored animation. Native easing is used when it is absent. */
+	/** Optional animation; native easing is the fallback. */
 	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> PauseTransition = nullptr;
 
@@ -52,7 +44,7 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Pause Menu|Hint")
 	TObjectPtr<UTextBlock> BackActionText = nullptr;
 
-	/** Preferred reusable hint. Raw text bindings above remain as a migration fallback. */
+	/** Preferred binding; raw text widgets are the legacy fallback. */
 	UPROPERTY(meta = (BindWidgetOptional), BlueprintReadOnly, Category = "MD|Pause Menu|Hint")
 	TObjectPtr<UMD_ActionHintWidget> ActionHint = nullptr;
 

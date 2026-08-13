@@ -1,36 +1,31 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "Player/MD_PlayerCharacter.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
-
-#include "GameFramework/SpringArmComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 #include "Camera/CameraComponent.h"
-
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "Feedback/MD_FoleyEventRelayComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Haptics/MD_PlayerHapticFeedbackComponent.h"
+#include "InputActionValue.h"
 #include "Interaction/MD_PlayerInspectComponent.h"
 #include "Interaction/MD_PlayerInteractionComponent.h"
-#include "Feedback/MD_FoleyEventRelayComponent.h"
-#include "Haptics/MD_PlayerHapticFeedbackComponent.h"
 
-// Sets default values
 AMD_PlayerCharacter::AMD_PlayerCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	
+
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
-	
+
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
-	
+
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
 	SpringArmComp->bUsePawnControlRotation = true;
 	SpringArmComp->SetupAttachment(RootComponent);
-	
+
 	SpringArmComp->TargetArmLength = 210.f;
 	SpringArmComp->SocketOffset = FVector(0.f, 50.f, 55.f);
 	SpringArmComp->bDoCollisionTest = true;
@@ -42,7 +37,6 @@ AMD_PlayerCharacter::AMD_PlayerCharacter()
 	SpringArmComp->bEnableCameraRotationLag = true;
 	SpringArmComp->CameraRotationLagSpeed = 12.f;
 
-	
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
 	CameraComponent->SetupAttachment(SpringArmComp, USpringArmComponent::SocketName);
 	CameraComponent->bUsePawnControlRotation = false;
@@ -54,7 +48,6 @@ AMD_PlayerCharacter::AMD_PlayerCharacter()
 	HapticFeedbackComp = CreateDefaultSubobject<UMD_PlayerHapticFeedbackComponent>("HapticFeedbackComponent");
 }
 
-// Called when the game starts or when spawned
 void AMD_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -65,13 +58,11 @@ void AMD_PlayerCharacter::BeginPlay()
 	Subsystem->AddMappingContext(DefaultMappingContext, 0);
 }
 
-// Called every frame
 void AMD_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
 
-// Called to bind functionality to input
 void AMD_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -90,14 +81,14 @@ void AMD_PlayerCharacter::Move(const FInputActionValue& Value)
 	{
 		return;
 	}
-	
+
 	FVector2D MovementVector = Value.Get<FVector2D>();
-	
+
 	FRotator ControlRot = Controller->GetControlRotation();
 	FRotator YawRot(0.f, ControlRot.Yaw, 0.f);
 
 	FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
-	FVector Right   = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
+	FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 
 	AddMovementInput(Forward, MovementVector.Y);
 	AddMovementInput(Right, MovementVector.X);
@@ -115,7 +106,7 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 
 	float CurrentSensitivity = MouseSensitivity;
 
-	if (CachedPlayerController) 
+	if (CachedPlayerController)
 	{
 		const float GamepadX = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightX);
 		const float GamepadY = CachedPlayerController->GetInputAnalogKeyState(EKeys::Gamepad_RightY);
@@ -127,7 +118,7 @@ void AMD_PlayerCharacter::Look(const FInputActionValue& Value)
 	}
 
 	LookAxisVector *= CurrentSensitivity;
-	
+
 	AddControllerYawInput(LookAxisVector.X);
 	AddControllerPitchInput(LookAxisVector.Y);
 }

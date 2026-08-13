@@ -8,8 +8,7 @@ class UMediaPlayer;
 class UMediaSource;
 class UUserWidget;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
-	FMDVideoFinished, FName, VideoId);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMDVideoFinished, FName, VideoId);
 
 UCLASS()
 class MORBUSDEI_API AMD_VideoManager : public AActor
@@ -19,26 +18,20 @@ class MORBUSDEI_API AMD_VideoManager : public AActor
 public:
 	AMD_VideoManager();
 
-	UFUNCTION(BlueprintCallable, Category="MD|Video")
-	bool PlayVideo(
-		UMediaSource* Source, 
-		FName VideoId,
-		bool bCanSkip = true,
-		bool bRestoreControl = true,
-		bool bStopExistingSounds = false
-	);
+	UFUNCTION(BlueprintCallable, Category = "MD|Video")
+	bool PlayVideo(UMediaSource* Source, FName VideoId, bool bCanSkip = true, bool bRestoreControl = true, bool bStopExistingSounds = false);
 
-	UFUNCTION(BlueprintCallable, Category="MD|Video")
+	UFUNCTION(BlueprintCallable, Category = "MD|Video")
 	void SkipVideo();
 
-	UPROPERTY(BlueprintAssignable, Category="MD|Video")
+	UPROPERTY(BlueprintAssignable, Category = "MD|Video")
 	FMDVideoFinished OnVideoFinished;
 
 protected:
-	UPROPERTY(EditAnywhere, Category="MD|Video")
+	UPROPERTY(EditAnywhere, Category = "MD|Video")
 	TObjectPtr<UMediaPlayer> MediaPlayer;
 
-	UPROPERTY(EditAnywhere, Category="MD|Video")
+	UPROPERTY(EditAnywhere, Category = "MD|Video")
 	TSubclassOf<UUserWidget> VideoWidgetClass;
 
 private:
