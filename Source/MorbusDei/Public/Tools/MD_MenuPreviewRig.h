@@ -44,6 +44,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "MD|Menu Preview")
 	bool HasPreview() const { return IsValid(CurrentPreviewActor); }
 
+	/** Returns the class actually on display, including when a preview request was rejected. */
+	TSubclassOf<AActor> GetPreviewClass() const { return IsValid(CurrentPreviewActor) ? CurrentPreviewActor->GetClass() : nullptr; }
+
 	/** 0 is fully zoomed in at MinZoom, 1 is fully zoomed out at MaxZoom. */
 	UFUNCTION(BlueprintPure, Category = "MD|Menu Preview|Zoom")
 	float GetNormalizedZoomDistance() const;

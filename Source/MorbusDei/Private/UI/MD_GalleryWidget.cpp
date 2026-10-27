@@ -1,4 +1,5 @@
 #include "UI/MD_GalleryWidget.h"
+#include "UI/MD_GalleryCatalog.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/ScrollBox.h"
@@ -50,6 +51,7 @@ void UMD_GalleryWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	FindPreviewRig();
+	RefreshSelectedDetails();
 	RegisterGalleryFocusItems();
 	OnBackActionHandled.AddUniqueDynamic(this, &UMD_GalleryWidget::HandleGalleryBackAction);
 	RefreshActionHints();
@@ -138,10 +140,15 @@ void UMD_GalleryWidget::ShowPreviewItem(TSubclassOf<AActor> PreviewClass)
 	if (IsValid(PreviewRigRef))
 	{
 		PreviewRigRef->ShowPreview(PreviewClass);
+		RefreshSelectedDetails();
 		if (PreviewRigRef->HasPreview())
 		{
 			EnterPreviewInspectMode();
 		}
+	}
+	else
+	{
+		RefreshSelectedDetails();
 	}
 }
 
@@ -155,6 +162,78 @@ void UMD_GalleryWidget::ClearPreview()
 	if (IsValid(PreviewRigRef))
 	{
 		PreviewRigRef->ClearPreview();
+	}
+
+	RefreshSelectedDetails();
+}
+
+void UMD_GalleryWidget::RefreshSelectedDetails()
+{
+	FName NewCreditId = NAME_None;
+	FText NewCreditText;
+	FName NewAssetNameId = NAME_None;
+	FText NewAssetNameText;
+	const TSubclassOf<AActor> PreviewClass = IsValid(PreviewRigRef) ? PreviewRigRef->GetPreviewClass() : nullptr;
+	if (PreviewClass && GalleryCatalog)
+	{
+		NewCreditText = MissingCreditText;
+		NewAssetNameText = MissingAssetNameText;
+		if (const FMDGalleryCatalogEntry* Entry = GalleryCatalog->FindEntry(PreviewClass))
+		{
+			// The class path supplies a stable event identifier; designers do not need an asset-name ID.
+			NewAssetNameId = FName(*PreviewClass->GetPathName());
+			if (!Entry->DisplayName.IsEmpty())
+			{
+				NewAssetNameText = Entry->DisplayName;
+			}
+			NewCreditId = Entry->ArtistId;
+			if (!NewCreditId.IsNone())
+			{
+				if (const FText* ArtistName = GalleryCatalog->Artists.Find(NewCreditId); ArtistName && !ArtistName->IsEmpty())
+				{
+					NewCreditText = *ArtistName;
+				}
+			}
+		}
+	}
+	else if (PreviewClass)
+	{
+		NewCreditText = MissingCreditText;
+		if (const FName* CreditId = PreviewCreditIds.Find(PreviewClass); CreditId && !CreditId->IsNone())
+		{
+			NewCreditId = *CreditId;
+			if (const FText* CreditText = CreditTexts.Find(NewCreditId))
+			{
+				NewCreditText = *CreditText;
+			}
+		}
+
+		NewAssetNameText = MissingAssetNameText;
+		if (const FName* AssetNameId = PreviewAssetNameIds.Find(PreviewClass); AssetNameId && !AssetNameId->IsNone())
+		{
+			NewAssetNameId = *AssetNameId;
+			if (const FText* AssetNameText = AssetNameTexts.Find(NewAssetNameId))
+			{
+				NewAssetNameText = *AssetNameText;
+			}
+		}
+	}
+
+	const bool bCreditChanged = SelectedCreditId != NewCreditId || !SelectedCreditText.EqualTo(NewCreditText);
+	const bool bAssetNameChanged = SelectedAssetNameId != NewAssetNameId || !SelectedAssetNameText.EqualTo(NewAssetNameText);
+
+	// Update both cached values before notifying UI listeners so they see a consistent selection.
+	SelectedCreditId = NewCreditId;
+	SelectedCreditText = NewCreditText;
+	SelectedAssetNameId = NewAssetNameId;
+	SelectedAssetNameText = NewAssetNameText;
+	if (bCreditChanged)
+	{
+		OnSelectedCreditChanged.Broadcast(SelectedCreditId, SelectedCreditText);
+	}
+	if (bAssetNameChanged)
+	{
+		OnSelectedAssetNameChanged.Broadcast(SelectedAssetNameId, SelectedAssetNameText);
 	}
 }
 

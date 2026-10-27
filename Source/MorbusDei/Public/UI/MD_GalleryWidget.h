@@ -10,8 +10,11 @@ class UWrapBox;
 class AMD_MenuPreviewRig;
 class UMD_ActionHintWidget;
 class UGameUIFocusItemWidgetBase;
+class UMD_GalleryCatalog;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMDGalleryInspectModeChanged, bool, bIsInspecting);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FMDGalleryCreditChanged, FName, CreditId, const FText&, CreditText);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FMDGalleryAssetNameChanged, FName, AssetNameId, const FText&, AssetNameText);
 
 USTRUCT(BlueprintType)
 struct FMDGalleryActionHintDefinition
@@ -41,6 +44,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MD|Gallery")
 	void ClearPreview();
 
+	/** Cached UI text for the visible preview. Suitable for a TextBlock Text binding. */
+	UFUNCTION(BlueprintPure, Category = "MD|Gallery|Credits")
+	FText GetSelectedCreditText() const { return SelectedCreditText; }
+
+	/** Optional alternative to property binding, e.g. for a credit text fade animation. */
+	UPROPERTY(BlueprintAssignable, Category = "MD|Gallery|Credits")
+	FMDGalleryCreditChanged OnSelectedCreditChanged;
+
+	/** Cached display name for the visible preview. Suitable for a separate TextBlock Text binding. */
+	UFUNCTION(BlueprintPure, Category = "MD|Gallery|Asset Names")
+	FText GetSelectedAssetNameText() const { return SelectedAssetNameText; }
+
+	UPROPERTY(BlueprintAssignable, Category = "MD|Gallery|Asset Names")
+	FMDGalleryAssetNameChanged OnSelectedAssetNameChanged;
+
 	UFUNCTION(BlueprintCallable, Category = "MD|Gallery|Input")
 	bool ReturnToGallerySelection();
 
@@ -51,6 +69,45 @@ public:
 	FMDGalleryInspectModeChanged OnInspectModeChanged;
 
 protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Daten", meta = (DisplayName = "Gallery-Katalog", ToolTip = "Data Asset mit Vorschau-Klasse, Asset-Anzeigename und Artist. Im Content Browser über Sonstiges / Data Asset einen MD Gallery Catalog erstellen und hier zuweisen. Ist ein Katalog zugewiesen, ersetzt er die alten Widget-Maps vollständig. Die bestehenden Text-Bindings bleiben gleich."))
+	TObjectPtr<UMD_GalleryCatalog> GalleryCatalog;
+
+	/** Use the same actor Blueprint classes passed to ShowPreviewItem. Multiple assets can share one ID. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AdvancedDisplay, Category = "MD|Gallery|Credits", meta = (EditCondition = "GalleryCatalog == nullptr", EditConditionHides))
+	TMap<TSubclassOf<AActor>, FName> PreviewCreditIds;
+
+	/** Define each credit once, e.g. Artist_Estelle -> Estelle. IDs are case-insensitive; None is unassigned. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AdvancedDisplay, Category = "MD|Gallery|Credits", meta = (EditCondition = "GalleryCatalog == nullptr", EditConditionHides))
+	TMap<FName, FText> CreditTexts;
+
+	/** Shown for an existing preview without a complete credit mapping. Empty by default. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Credits")
+	FText MissingCreditText;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "MD|Gallery|Credits")
+	FName SelectedCreditId;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "MD|Gallery|Credits")
+	FText SelectedCreditText;
+
+	/** Use the same actor Blueprint classes passed to ShowPreviewItem. Variants can share one name ID. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AdvancedDisplay, Category = "MD|Gallery|Asset Names", meta = (EditCondition = "GalleryCatalog == nullptr", EditConditionHides))
+	TMap<TSubclassOf<AActor>, FName> PreviewAssetNameIds;
+
+	/** Define each display name once, e.g. Asset_MedicalJar -> Medical Jar. None is unassigned. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AdvancedDisplay, Category = "MD|Gallery|Asset Names", meta = (EditCondition = "GalleryCatalog == nullptr", EditConditionHides))
+	TMap<FName, FText> AssetNameTexts;
+
+	/** Shown for an existing preview without a complete asset name mapping. Empty by default. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "MD|Gallery|Asset Names")
+	FText MissingAssetNameText;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "MD|Gallery|Asset Names")
+	FName SelectedAssetNameId;
+
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "MD|Gallery|Asset Names")
+	FText SelectedAssetNameText;
+
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
@@ -147,6 +204,9 @@ protected:
 	float GalleryDigitalRepeatInterval = 0.14f;
 
 private:
+	// The optional editor import reads saved legacy defaults without modifying the widget.
+	friend class UMD_GalleryCatalog;
+
 	bool bDraggingPreview = false;
 	bool bIsInspectingPreview = false;
 	bool bPanUpHeld = false;
@@ -165,6 +225,7 @@ private:
 	TObjectPtr<UGameUIFocusItemWidgetBase> GalleryBackButton;
 
 	void FindPreviewRig();
+	void RefreshSelectedDetails();
 	void RegisterGalleryFocusItems();
 	void RefreshActionHints();
 
