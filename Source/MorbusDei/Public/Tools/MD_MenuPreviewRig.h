@@ -23,6 +23,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "MD|Menu Preview")
 	void ShowPreview(TSubclassOf<AActor> PreviewClass);
 
+	/** Presentation offsets are local to the preview actor, independent of its imported origin. */
+	UFUNCTION(BlueprintCallable, Category = "MD|Menu Preview")
+	void ShowPreviewWithPresentation(TSubclassOf<AActor> PreviewClass, FRotator RotationOffset, FVector InPivotOffset);
+
 	UFUNCTION(BlueprintCallable, Category = "MD|Menu Preview")
 	void ClearPreview();
 
@@ -138,6 +142,7 @@ private:
 	FVector TargetCameraPanOffset = FVector::ZeroVector;
 
 	bool GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const;
+	void PreparePreviewActor(AActor* Actor) const;
 	float GetClampedZoomDistance(float Distance) const;
 	float GetAutomaticZoomDistance(const FVector& BoundsExtent) const;
 	FVector GetPreviewFramingLocalOffset() const;

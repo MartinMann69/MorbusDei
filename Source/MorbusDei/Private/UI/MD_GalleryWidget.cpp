@@ -139,7 +139,15 @@ void UMD_GalleryWidget::ShowPreviewItem(TSubclassOf<AActor> PreviewClass)
 
 	if (IsValid(PreviewRigRef))
 	{
-		PreviewRigRef->ShowPreview(PreviewClass);
+		const FMDGalleryCatalogEntry* Entry = GalleryCatalog ? GalleryCatalog->FindEntry(PreviewClass) : nullptr;
+		if (Entry)
+		{
+			PreviewRigRef->ShowPreviewWithPresentation(PreviewClass, Entry->PreviewRotationOffset, Entry->PreviewPivotOffset);
+		}
+		else
+		{
+			PreviewRigRef->ShowPreview(PreviewClass);
+		}
 		RefreshSelectedDetails();
 		if (PreviewRigRef->HasPreview())
 		{

@@ -4,7 +4,11 @@
 #include "Components/MeshComponent.h"
 #include "Components/RectLightComponent.h"
 #include "Components/SceneComponent.h"
+#include "GameFramework/MovementComponent.h"
+#include "GameFramework/Pawn.h"
 #include "GameFramework/SpringArmComponent.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogMDMenuPreview, Log, All);
 
 AMD_MenuPreviewRig::AMD_MenuPreviewRig()
 {
@@ -135,6 +139,11 @@ void AMD_MenuPreviewRig::Tick(float DeltaSeconds)
 
 void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 {
+	ShowPreviewWithPresentation(PreviewClass, FRotator::ZeroRotator, FVector::ZeroVector);
+}
+
+void AMD_MenuPreviewRig::ShowPreviewWithPresentation(TSubclassOf<AActor> PreviewClass, FRotator RotationOffset, FVector InPivotOffset)
+{
 	if (!PreviewClass || !GetWorld() || !PreviewPivot || !SpawnPoint)
 	{
 		return;
@@ -161,8 +170,11 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnParams.ObjectFlags |= RF_Transient;
+	SpawnParams.bDeferConstruction = true;
 
-	const FTransform SpawnTransform(PreviewSpawnRotation, SpawnPoint->GetComponentLocation(), SpawnPoint->GetComponentScale());
+	const FQuat SpawnRotation = SpawnPoint->GetComponentQuat() * PreviewSpawnRotation.Quaternion() * RotationOffset.Quaternion();
+	const FTransform SpawnTransform(SpawnRotation, SpawnPoint->GetComponentLocation(), SpawnPoint->GetComponentScale());
 
 	CurrentPreviewActor = GetWorld()->SpawnActor<AActor>(PreviewClass, SpawnTransform, SpawnParams);
 
@@ -171,7 +183,18 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 		return;
 	}
 
-	CurrentPreviewActor->SetActorEnableCollision(false);
+	// A gallery pawn must not acquire a controller or start moving as a gameplay character.
+	if (APawn* Pawn = Cast<APawn>(CurrentPreviewActor))
+	{
+		Pawn->AutoPossessAI = EAutoPossessAI::Disabled;
+		Pawn->AutoPossessPlayer = EAutoReceiveInput::Disabled;
+	}
+	CurrentPreviewActor->FinishSpawning(SpawnTransform);
+	if (!IsValid(CurrentPreviewActor))
+	{
+		return;
+	}
+	PreparePreviewActor(CurrentPreviewActor);
 
 	float DesiredZoomDistance = GetClampedZoomDistance(DefaultZoomDistance);
 
@@ -179,10 +202,17 @@ void AMD_MenuPreviewRig::ShowPreview(TSubclassOf<AActor> PreviewClass)
 	FVector MeshExtent;
 	if (GetPreviewActorBounds(CurrentPreviewActor, MeshCenter, MeshExtent))
 	{
-		const FVector Offset = SpawnPoint->GetComponentLocation() - MeshCenter;
+		const FVector PivotWorldOffset = CurrentPreviewActor->GetActorTransform().TransformVector(InPivotOffset);
+		// Placement and rotation must use the same center, even with an offset SpawnPoint.
+		const FVector Offset = PreviewPivot->GetComponentLocation() - (MeshCenter + PivotWorldOffset);
 		CurrentPreviewActor->SetActorLocation(CurrentPreviewActor->GetActorLocation() + Offset, false, nullptr, ETeleportType::TeleportPhysics);
 
 		DesiredZoomDistance = GetAutomaticZoomDistance(MeshExtent);
+	}
+	else
+	{
+		CurrentPreviewActor->SetActorLocation(PreviewPivot->GetComponentLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+		UE_LOG(LogMDMenuPreview, Warning, TEXT("%s: No visible mesh bounds for %s; using actor origin as preview pivot."), *GetName(), *GetNameSafe(PreviewClass.Get()));
 	}
 
 	CurrentPreviewActor->AttachToComponent(PreviewPivot, FAttachmentTransformRules::KeepWorldTransform);
@@ -220,7 +250,12 @@ void AMD_MenuPreviewRig::ClearPreview()
 
 void AMD_MenuPreviewRig::RotatePreview(float DeltaX, float DeltaY)
 {
-	PreviewYaw -= DeltaX * RotationSpeed;
+	if (!IsValid(CurrentPreviewActor) || !PreviewPivot)
+	{
+		return;
+	}
+
+	PreviewYaw = FRotator::NormalizeAxis(PreviewYaw - DeltaX * RotationSpeed);
 	PreviewPitch = FMath::Clamp(PreviewPitch + DeltaY * RotationSpeed, -180.0f, 180.0f);
 
 	PreviewPivot->SetRelativeRotation(FRotator(PreviewPitch, PreviewYaw, 0.0f));
@@ -302,6 +337,39 @@ float AMD_MenuPreviewRig::GetNormalizedZoomDistance() const
 	return FMath::GetMappedRangeValueClamped(FVector2D(MinimumDistance, MaximumDistance), FVector2D(0.0f, 1.0f), CurrentZoomDistance);
 }
 
+void AMD_MenuPreviewRig::PreparePreviewActor(AActor* Actor) const
+{
+	Actor->SetActorEnableCollision(false);
+	Actor->SetActorTickEnabled(false);
+
+	TArray<UMovementComponent*> MovementComponents;
+	Actor->GetComponents<UMovementComponent>(MovementComponents);
+	for (UMovementComponent* Movement : MovementComponents)
+	{
+		Movement->StopMovementImmediately();
+		Movement->Deactivate();
+		Movement->SetComponentTickEnabled(false);
+	}
+
+	TArray<UMeshComponent*> MeshComponents;
+	Actor->GetComponents<UMeshComponent>(MeshComponents);
+	for (UMeshComponent* Mesh : MeshComponents)
+	{
+		Mesh->SetSimulatePhysics(false);
+		Mesh->UpdateBounds();
+	}
+
+	TArray<AActor*> ChildActors;
+	Actor->GetAllChildActors(ChildActors);
+	for (AActor* Child : ChildActors)
+	{
+		if (IsValid(Child))
+		{
+			PreparePreviewActor(Child);
+		}
+	}
+}
+
 bool AMD_MenuPreviewRig::GetPreviewActorBounds(AActor* Actor, FVector& OutCenter, FVector& OutExtent) const
 {
 	if (!Actor)
@@ -310,17 +378,19 @@ bool AMD_MenuPreviewRig::GetPreviewActorBounds(AActor* Actor, FVector& OutCenter
 	}
 
 	TArray<UMeshComponent*> MeshComponents;
-	Actor->GetComponents<UMeshComponent>(MeshComponents);
+	Actor->GetComponents<UMeshComponent>(MeshComponents, true);
 
 	FBox CombinedBox(ForceInit);
 
 	for (UMeshComponent* MeshComponent : MeshComponents)
 	{
-		if (!IsValid(MeshComponent) || !MeshComponent->IsRegistered() || !MeshComponent->IsVisible())
+		if (!IsValid(MeshComponent) || !MeshComponent->IsRegistered() || !MeshComponent->IsVisible()
+			|| MeshComponent->bHiddenInGame || MeshComponent->GetOwner()->IsHidden())
 		{
 			continue;
 		}
 
+		MeshComponent->UpdateBounds();
 		if (MeshComponent->Bounds.BoxExtent.IsNearlyZero())
 		{
 			continue;

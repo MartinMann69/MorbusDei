@@ -17,6 +17,12 @@ struct MORBUSDEI_API FMDGalleryCatalogEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gallery", meta = (DisplayName = "Artist auswählen", GetOptions = "GetArtistIds", ToolTip = "Wähle einen Schlüssel aus der Liste Artists dieses Data Assets. Mehrere Assets können denselben Artist verwenden. None bedeutet: kein Artist zugeordnet. Den sichtbaren Namen pflegst du einmal zentral unter Artists."))
 	FName ArtistId;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gallery|Presentation", meta = (DisplayName = "Vorschau-Startrotation", ToolTip = "Lokale Korrektur zur Startrotation des Preview-Rigs. Damit unterschiedliche Import-Achsen zur Kamera ausgerichtet werden. Reset stellt diese Ansicht wieder her."))
+	FRotator PreviewRotationOffset = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gallery|Presentation", meta = (DisplayName = "Vorschau-Pivot-Korrektur", Units = "cm", ToolTip = "Optionaler Versatz von der sichtbaren Mesh-Mitte in lokalen Actor-Achsen. Null dreht um die automatisch bestimmte Mitte; bei asymmetrischen Assets hier den gewuenschten Drehpunkt korrigieren."))
+	FVector PreviewPivotOffset = FVector::ZeroVector;
 };
 
 /** Central, reusable display information for gallery preview classes. */
